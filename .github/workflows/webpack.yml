@@ -30,7 +30,7 @@ jobs:
       run: npm ci --legacy-peer-deps
 
     - name: Install Webpack CLI
-      run: npm install -D webpack webpack-cli
+      run: npm install -D webpack webpack-cli --legacy-peer-deps
 
     - name: Build
       run: npx webpack
