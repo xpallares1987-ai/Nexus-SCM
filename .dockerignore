@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.env
+.DS_Store
+npm-debug.log
+bun.lock
+bun.lockb
+local_pg_data
+fastify.log
