@@ -22,7 +22,7 @@
     "@fastify/websocket": "^11.2.0",
     "@fontsource-variable/geist": "^5.2.9",
     "@geoapify/un-locode": "^1.0.3",
-    "@google/genai": "^2.10.0",
+    "@google/genai": "^2.13.0",
     "@hookform/resolvers": "^5.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
