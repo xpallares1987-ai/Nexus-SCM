@@ -54,7 +54,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-hook-form": "^7.81.0",
-    "react-i18next": "^17.0.8",
+    "react-i18next": "^17.0.11",
     "react-markdown": "^10.1.0",
     "react-router": "^8.1.0",
     "react-simple-maps": "^3.0.0",
