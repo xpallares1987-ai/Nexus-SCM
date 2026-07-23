@@ -36,7 +36,7 @@
     "dexie": "^4.4.4",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.2",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.1",
     "eventemitter3": "^5.0.4",
     "fastify": "^5.9.0",
     "fuse.js": "^7.4.2",
