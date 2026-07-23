@@ -19,7 +19,7 @@
     "@electric-sql/pglite": "^0.5.4",
     "@fastify/middie": "^9.3.2",
     "@fastify/static": "^9.1.3",
-    "@fastify/websocket": "^11.2.0",
+    "@fastify/websocket": "^11.3.0",
     "@fontsource-variable/geist": "^5.2.9",
     "@geoapify/un-locode": "^1.0.3",
     "@google/genai": "^2.10.0",
