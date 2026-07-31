@@ -14,6 +14,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchApi } from '../../lib/api';
 import { toast } from 'sonner';
 import { SpotBourse } from './SpotBourse';
+import { RouteDefinitionForm } from './RouteDefinitionForm';
 import {
   LineChart,
   Line,
@@ -291,6 +292,7 @@ export function RoutingRates() {
       <Tabs defaultValue="routing" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="routing">Routing Engine</TabsTrigger>
+          <TabsTrigger value="definitions">Route Definitions</TabsTrigger>
           <TabsTrigger value="comparison">Rate Comparison</TabsTrigger>
           <TabsTrigger value="approvals">Rate Approvals</TabsTrigger>
           <TabsTrigger value="carbon">Sustainable Sourcing & CO₂</TabsTrigger>
@@ -298,6 +300,9 @@ export function RoutingRates() {
           <TabsTrigger value="bourse">Spot Bourse</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="definitions" className="space-y-6 mt-0">
+          <RouteDefinitionForm />
+        </TabsContent>
         <TabsContent value="routing" className="space-y-6 mt-0">
           {highRiskShipments.length > 0 && (
             <Card className="border-amber-200 bg-amber-50">

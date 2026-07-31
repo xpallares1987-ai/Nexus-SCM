@@ -243,8 +243,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Keyboard className="w-5 h-5 text-muted-foreground" />
             </Button>
             <AlertPanel />
-            <Button variant="ghost" size="icon" onClick={() => updateProfile({ theme: profile?.theme === 'dark' ? 'light' : 'dark' })} title="Toggle Theme">
-              {profile?.theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                        <Button variant="ghost" size="icon" onClick={() => {
+              const root = window.document.documentElement;
+              const isDark = root.classList.contains('dark');
+              const newTheme = isDark ? 'light' : 'dark';
+              root.classList.remove('light', 'dark');
+              root.classList.add(newTheme);
+              localStorage.setItem('scm_theme', newTheme);
+              document.cookie = `scm_theme=${newTheme}; path=/; max-age=31536000; SameSite=Lax`;
+              updateProfile({ theme: newTheme }).catch(() => {});
+            }} title="Toggle Theme">
+              <Sun className="w-5 h-5 hidden dark:block" />
+              <Moon className="w-5 h-5 block dark:hidden" />
             </Button>
             <select 
               className="bg-transparent border border-border rounded-md text-sm px-2 py-1 outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-700 dark:text-zinc-300"

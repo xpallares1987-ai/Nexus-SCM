@@ -16,7 +16,7 @@ export const users = pgTable("users", {
   emailNotifications: integer("email_notifications").default(1),
   smsNotifications: integer("sms_notifications").default(0),
   theme: text("theme").default('light'),
-  role: text("role").notNull().default('Ejecutivo'), // 'Admin', 'Operador', 'Ejecutivo'
+  role: text("role").notNull().default('Viewer'), // 'Admin', 'Operator', 'Viewer'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -42,5 +42,14 @@ export const notifications = pgTable("notifications", {
   message: text("message").notNull(),
   isRead: integer("is_read").default(0).notNull(),
   referenceId: text("reference_id"), // Document ID, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { parties } from "../crm/schema.ts";
+import { entities } from "../crm/schema.ts";
 
 export const shipments = pgTable("shipments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -9,9 +9,9 @@ export const shipments = pgTable("shipments", {
   type: text("type").notNull(), // 'Sea-FCL', 'Sea-LCL', 'Air', 'Road'
   status: text("status").notNull(), // 'Draft', 'Booked', 'InTransit', 'Arrived', 'Delivered'
   
-  shipperId: uuid("shipper_id").references(() => parties.id),
-  consigneeId: uuid("consignee_id").references(() => parties.id),
-  carrierId: uuid("carrier_id").references(() => parties.id),
+  shipperId: uuid("shipper_id").references(() => entities.id),
+  consigneeId: uuid("consignee_id").references(() => entities.id),
+  carrierId: uuid("carrier_id").references(() => entities.id),
   
   originPort: text("origin_port"),
   destinationPort: text("destination_port"),

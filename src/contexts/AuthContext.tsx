@@ -76,8 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = window.document.documentElement;
+    const currentLocalTheme = localStorage.getItem('scm_theme');
+    const themeToUse = profile?.theme || currentLocalTheme || 'light';
+    
     root.classList.remove('light', 'dark');
-    if (profile?.theme === 'dark') {
+    if (themeToUse === 'dark') {
       root.classList.add('dark');
       localStorage.setItem('scm_theme', 'dark');
       document.cookie = "scm_theme=dark; path=/; max-age=31536000; SameSite=Lax";

@@ -1,5 +1,5 @@
 {
-  "id": "343f31b6-6b7f-4c36-b41b-38d7dae602b9",
+  "id": "391e761b-4fbf-4870-aa6f-3b1f7c16abc7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -50,6 +50,84 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notifications": {
+      "name": "notifications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_role": {
+          "name": "target_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_read": {
+          "name": "is_read",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "reference_id": {
+          "name": "reference_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "notifications_user_id_users_id_fk": {
+          "name": "notifications_user_id_users_id_fk",
+          "tableFrom": "notifications",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -177,7 +255,7 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'Viewer'"
+          "default": "'Ejecutivo'"
         },
         "created_at": {
           "name": "created_at",
@@ -444,8 +522,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.parties": {
-      "name": "parties",
+    "public.entities": {
+      "name": "entities",
       "schema": "",
       "columns": {
         "id": {
@@ -455,58 +533,20 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "contact_email": {
-          "name": "contact_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "contact_phone": {
-          "name": "contact_phone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "address": {
-          "name": "address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "category": {
-          "name": "category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'Client'"
-        },
         "company_name": {
           "name": "company_name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'Unknown'"
+          "notNull": true
         },
-        "address_line1": {
-          "name": "address_line1",
+        "street": {
+          "name": "street",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "address_line2": {
-          "name": "address_line2",
+        "zip_code": {
+          "name": "zip_code",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -517,20 +557,50 @@
           "primaryKey": false,
           "notNull": false
         },
-        "state": {
-          "name": "state",
+        "federal_state": {
+          "name": "federal_state",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "postal_code": {
-          "name": "postal_code",
+        "country_iso_code": {
+          "name": "country_iso_code",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "country": {
-          "name": "country",
+        "country_name": {
+          "name": "country_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unlocode": {
+          "name": "unlocode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tax_id": {
+          "name": "tax_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company_type": {
+          "name": "company_type",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -558,8 +628,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.party_contacts": {
-      "name": "party_contacts",
+    "public.entity_contacts": {
+      "name": "entity_contacts",
       "schema": "",
       "columns": {
         "id": {
@@ -569,8 +639,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "party_id": {
-          "name": "party_id",
+        "entity_id": {
+          "name": "entity_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -615,12 +685,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "party_contacts_party_id_parties_id_fk": {
-          "name": "party_contacts_party_id_parties_id_fk",
-          "tableFrom": "party_contacts",
-          "tableTo": "parties",
+        "entity_contacts_entity_id_entities_id_fk": {
+          "name": "entity_contacts_entity_id_entities_id_fk",
+          "tableFrom": "entity_contacts",
+          "tableTo": "entities",
           "columnsFrom": [
-            "party_id"
+            "entity_id"
           ],
           "columnsTo": [
             "id"
@@ -852,6 +922,12 @@
           "notNull": false,
           "default": "'USD'"
         },
+        "weight": {
+          "name": "weight",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -869,10 +945,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "shipments_shipper_id_parties_id_fk": {
-          "name": "shipments_shipper_id_parties_id_fk",
+        "shipments_shipper_id_entities_id_fk": {
+          "name": "shipments_shipper_id_entities_id_fk",
           "tableFrom": "shipments",
-          "tableTo": "parties",
+          "tableTo": "entities",
           "columnsFrom": [
             "shipper_id"
           ],
@@ -882,10 +958,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "shipments_consignee_id_parties_id_fk": {
-          "name": "shipments_consignee_id_parties_id_fk",
+        "shipments_consignee_id_entities_id_fk": {
+          "name": "shipments_consignee_id_entities_id_fk",
           "tableFrom": "shipments",
-          "tableTo": "parties",
+          "tableTo": "entities",
           "columnsFrom": [
             "consignee_id"
           ],
@@ -895,10 +971,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "shipments_carrier_id_parties_id_fk": {
-          "name": "shipments_carrier_id_parties_id_fk",
+        "shipments_carrier_id_entities_id_fk": {
+          "name": "shipments_carrier_id_entities_id_fk",
           "tableFrom": "shipments",
-          "tableTo": "parties",
+          "tableTo": "entities",
           "columnsFrom": [
             "carrier_id"
           ],
@@ -1007,10 +1083,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "rates_carrier_id_parties_id_fk": {
-          "name": "rates_carrier_id_parties_id_fk",
+        "rates_carrier_id_entities_id_fk": {
+          "name": "rates_carrier_id_entities_id_fk",
           "tableFrom": "rates",
-          "tableTo": "parties",
+          "tableTo": "entities",
           "columnsFrom": [
             "carrier_id"
           ],
@@ -1021,6 +1097,116 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.routings": {
+      "name": "routings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "rate_id": {
+          "name": "rate_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destination": {
+          "name": "destination",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transit_time_days": {
+          "name": "transit_time_days",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "routings_rate_id_rates_id_fk": {
+          "name": "routings_rate_id_rates_id_fk",
+          "tableFrom": "routings",
+          "tableTo": "rates",
+          "columnsFrom": [
+            "rate_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.document_folders": {
+      "name": "document_folders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -1172,10 +1358,10 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "invoices_party_id_parties_id_fk": {
-          "name": "invoices_party_id_parties_id_fk",
+        "invoices_party_id_entities_id_fk": {
+          "name": "invoices_party_id_entities_id_fk",
           "tableFrom": "invoices",
-          "tableTo": "parties",
+          "tableTo": "entities",
           "columnsFrom": [
             "party_id"
           ],
@@ -1239,10 +1425,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "party_bl_formats_party_id_parties_id_fk": {
-          "name": "party_bl_formats_party_id_parties_id_fk",
+        "party_bl_formats_party_id_entities_id_fk": {
+          "name": "party_bl_formats_party_id_entities_id_fk",
           "tableFrom": "party_bl_formats",
-          "tableTo": "parties",
+          "tableTo": "entities",
           "columnsFrom": [
             "party_id"
           ],
@@ -1405,6 +1591,55 @@
           "primaryKey": false,
           "notNull": false
         },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "parent_document_id": {
+          "name": "parent_document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "comments": {
+          "name": "comments",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "file_size": {
+          "name": "file_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "extracted_metadata": {
+          "name": "extracted_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "folder_id": {
+          "name": "folder_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expiry_date": {
+          "name": "expiry_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -1532,6 +1767,70 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.audit_logs": {
+      "name": "audit_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changed_by": {
+          "name": "changed_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'System'"
+        },
+        "previous_state": {
+          "name": "previous_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_state": {
+          "name": "new_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.compliance_documents": {
       "name": "compliance_documents",
       "schema": "",
@@ -1598,6 +1897,12 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'System'"
+        },
+        "expiry_date": {
+          "name": "expiry_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

@@ -245,7 +245,7 @@ export default function Login() {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
-                  <Input id="signin-password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-9.5 pr-10" {...signinForm.register('password')} />
+                  <Input id="signin-password" type={showPassword ? "text" : "password"} placeholder="••••••••" className="pl-9.5 pr-10" autoComplete="current-password" {...signinForm.register('password')} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-zinc-400">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

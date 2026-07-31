@@ -58,6 +58,12 @@ export function BookingManagement() {
     loadTemplates();
   }, [token]);
 
+  useEffect(() => {
+    const handleNewBooking = () => setIsBookingDialogOpen(true);
+    window.addEventListener('open-new-booking', handleNewBooking);
+    return () => window.removeEventListener('open-new-booking', handleNewBooking);
+  }, []);
+
   const loadBookings = async () => {
     if (!token) return;
     try {

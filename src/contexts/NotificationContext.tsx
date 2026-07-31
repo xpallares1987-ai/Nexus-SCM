@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { fetchApi } from '../lib/api';
+import { urlBase64ToUint8Array } from '../lib/urlBase64ToUint8Array';
 
 interface NotificationContextType {
   permission: NotificationPermission;
@@ -58,6 +60,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setPermission(perm);
     if (perm === 'granted') {
       updateSettings({ pushEnabled: true });
+      
+      // Push subscription removed
+      // WebSockets or service worker local notifications can be used instead
+      
     } else {
       updateSettings({ pushEnabled: false });
     }

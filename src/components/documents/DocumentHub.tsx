@@ -1,3 +1,8 @@
+import { UploadDocumentDialog } from "./dialogs/UploadDocumentDialog";
+import { NewFolderDialog } from "./dialogs/NewFolderDialog";
+import { ExpiryConfigDialog } from "./dialogs/ExpiryConfigDialog";
+import { WebAuthnSettingsDialog } from "./dialogs/WebAuthnSettingsDialog";
+import { DocumentDashboard } from "./DocumentDashboard";
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/data-display/card';
 import { Button } from '@/components/ui/forms/button';
@@ -11,6 +16,7 @@ import { Badge } from '@/components/ui/data-display/badge';
 import { fetchApi } from '../../lib/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileText, 
   Upload, 
@@ -22,7 +28,7 @@ import {
   CheckCircle, 
   XCircle, 
   FilePlus, 
-  Eye, 
+  Eye, X, 
   Layers, 
   MessageSquare, 
   Tag, 
@@ -53,7 +59,8 @@ import {
   CalendarRange,
   Settings,
   Fingerprint,
-  Shield
+  Shield,
+  BarChart2
 } from 'lucide-react';
 import Fuse from 'fuse.js';
 import { useTranslation } from 'react-i18next';
@@ -96,17 +103,18 @@ export interface Document {
   comments?: string;
   fileSize?: string;
   createdAt: string;
-  extractedMetadata?: { 
-    invoiceNumber?: string; 
-    date?: string; 
-    amount?: string; 
-    aiSummary?: string; 
-    confidenceScore?: number; 
+  extractedMetadata?: {
+    invoiceNumber?: string;
+    date?: string;
+    amount?: string;
+    aiSummary?: string;
+    confidenceScore?: number;
     validationStatus?: string;
     containerNumber?: string;
     consignee?: string;
     grossWeight?: string;
     digitalSignature?: string;
+    expirationDate?: string;
   };
   tags?: string[];
   folderId?: string;
@@ -156,7 +164,7 @@ export function DocumentHub() {
   // Data State
   const [documents, setDocuments] = useState<Document[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>('dashboard');
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -232,6 +240,9 @@ export function DocumentHub() {
   const [batchFolderId, setBatchFolderId] = useState<string>('unassigned');
   const [batchFiles, setBatchFiles] = useState<{id: string, file: File, base64: string, size: string, type: string, status: 'pending' | 'uploading' | 'completed' | 'error', errorMessage?: string}[]>([]);
   const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingSingle, setIsDraggingSingle] = useState(false);
+  const [isDraggingRevision, setIsDraggingRevision] = useState(false);
   const [uploadType, setUploadType] = useState('Bill of Lading (HBL)');
   const [uploadFolderId, setUploadFolderId] = useState<string>('unassigned');
   const [uploadShipmentId, setUploadShipmentId] = useState('');
@@ -459,8 +470,8 @@ export function DocumentHub() {
           { name: 'Albert Einstein (Schengen Manifest Auditor)', office: 'Hamburg Deepwater Port Signal Node', timestamp: 'Joined 1 min ago' }
         ];
         // 50% chance of collaborative review collision detection
-        if (Math.random() > 0.5) {
-          const randomUser = potentialReviewers[Math.floor(Math.random() * potentialReviewers.length)];
+        if ((window.crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) > 0.5) {
+          const randomUser = potentialReviewers[Math.floor((window.crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296) * potentialReviewers.length)];
           setCollisionUser(randomUser);
           toast.warning(`Collision warning: ${randomUser.name} is currently reviewing/editing this manifest!`, {
             duration: 6000,
@@ -656,7 +667,7 @@ export function DocumentHub() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setBatchFiles(prev => [...prev, {
-          id: Math.random().toString(36).substring(7),
+          id: window.crypto.getRandomValues(new Uint32Array(1))[0].toString(36),
           file,
           base64: reader.result as string,
           size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
@@ -1265,7 +1276,7 @@ export function DocumentHub() {
   }
 
   const filteredLatestDocs = searchResults.filter(doc => {
-    const matchesFolder = currentFolderId === null ? true : doc.folderId === currentFolderId;
+    const matchesFolder = (currentFolderId === null || currentFolderId === 'dashboard') ? true : doc.folderId === currentFolderId;
     if (!matchesFolder) return false;
     const matchesType = selectedType === 'ALL' || doc.documentType === selectedType;
     const matchesShipment = selectedShipment === 'ALL' || doc.shipmentId === selectedShipment;
@@ -1297,6 +1308,13 @@ export function DocumentHub() {
           </Button>
         </CardHeader>
         <CardContent className="p-2 flex flex-col gap-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+          <Button 
+            variant={currentFolderId === 'dashboard' ? "secondary" : "ghost"} 
+            className={`w-full justify-start font-medium text-xs h-9 ${currentFolderId === 'dashboard' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400' : ''}`}
+            onClick={() => setCurrentFolderId('dashboard')}
+          >
+            <BarChart2 className="w-4 h-4 mr-2" /> Dashboard
+          </Button>
           <Button 
             variant={currentFolderId === null ? "secondary" : "ghost"} 
             className={`w-full justify-start font-medium text-xs h-9 ${currentFolderId === null ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400' : ''}`}
@@ -1363,112 +1381,29 @@ export function DocumentHub() {
             >
               <Layers className="w-4 h-4" /> Batch OCR Queue
             </Button>
-            <Dialog open={isUploadOpen} onOpenChange={(open) => { setIsUploadOpen(open); if(!open) resetNewUploadForm(); }}>
-            <DialogTrigger className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm transition-all flex items-center justify-center gap-2 h-10 px-4 rounded-md cursor-pointer text-sm">
-              <Upload className="w-4 h-4" /> Upload Document
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[550px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-                  <FilePlus className="w-5 h-5 text-indigo-500" /> Add New Shipping Document
-                </DialogTitle>
-                <CardDescription>
-                  Upload a digital shipping form, categorize it, and bind it securely to an active shipment.
-                </CardDescription>
-              </DialogHeader>
-              
-              <form onSubmit={handleUploadNewDocument} className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">{t('document_type', 'Document Type')}</Label>
-                    <Select value={uploadType} onValueChange={setUploadType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t('document_type', 'Select type')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Bill of Lading (HBL)">{t('doc_types.hbl')}</SelectItem>
-                        <SelectItem value="Bill of Lading (MBL)">{t('doc_types.mbl')}</SelectItem>
-                        <SelectItem value="Air Waybill (AWB)">{t('doc_types.awb')}</SelectItem>
-                        <SelectItem value="Commercial Invoice">{t('doc_types.invoice')}</SelectItem>
-                        <SelectItem value="Packing List">{t('doc_types.packing_list')}</SelectItem>
-                        <SelectItem value="Customs Form">{t('doc_types.customs_form')}</SelectItem>
-                        <SelectItem value="Certificate of Origin">{t('doc_types.co')}</SelectItem>
-                        <SelectItem value="Other">{t('doc_types.other')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Assign to Folder</Label>
-                    <Select value={uploadFolderId} onValueChange={setUploadFolderId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Unassigned" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unassigned">All Documents (Unassigned)</SelectItem>
-                        {folders.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Link Voyage / Shipment</Label>
-                    <Select value={uploadShipmentId} onValueChange={setUploadShipmentId} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select shipment" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {shipments.map(s => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.referenceNumber} ({s.originPort} → {s.destinationPort})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Document File (PDF, PNG, JPG)</Label>
-                  <Input 
-                    type="file" 
-                    onChange={(e) => handleFileChange(e, 'new')}
-                    accept=".pdf,.png,.jpg,.jpeg"
-                    required
-                  />
-                  {uploadFileSize && (
-                    <p className="text-[10px] font-mono text-indigo-500">Detected File Size: {uploadFileSize}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Document Label Name</Label>
-                  <Input 
-                    placeholder="e.g. AWB-987216-FINAL" 
-                    value={uploadFileName} 
-                    onChange={(e) => setUploadFileName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Version Comments / Notes</Label>
-                  <textarea 
-                    className="w-full h-20 p-2.5 text-sm rounded-md border border-input bg-background font-sans focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="e.g. Signed original from carrier. Version 1 release."
-                    value={uploadComments}
-                    onChange={(e) => setUploadComments(e.target.value)}
-                  />
-                </div>
-
-                <DialogFooter className="pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)}>Cancel</Button>
-                  <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white" disabled={isUploading}>
-                    {isUploading ? 'Uploading & Securing...' : 'Verify & Store'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+            <UploadDocumentDialog
+            isOpen={isUploadOpen}
+            onOpenChange={(open) => { setIsUploadOpen(open); if(!open) resetNewUploadForm(); }}
+            onSubmit={handleUploadNewDocument}
+            uploadType={uploadType}
+            setUploadType={setUploadType}
+            uploadFolderId={uploadFolderId}
+            setUploadFolderId={setUploadFolderId}
+            uploadShipmentId={uploadShipmentId}
+            setUploadShipmentId={setUploadShipmentId}
+            folders={folders}
+            shipments={shipments}
+            isDraggingSingle={isDraggingSingle}
+            setIsDraggingSingle={setIsDraggingSingle}
+            handleFileChange={handleFileChange}
+            uploadFileSize={uploadFileSize}
+            uploadFileName={uploadFileName}
+            setUploadFileName={setUploadFileName}
+            uploadComments={uploadComments}
+            setUploadComments={setUploadComments}
+            isUploading={isUploading}
+            t={t}
+          />
           </div>
         )}
       </div>
@@ -1562,7 +1497,13 @@ export function DocumentHub() {
         )}
       </Card>
 
-      {/* KPI Stats Cards */}
+      
+      {currentFolderId === 'dashboard' ? (
+        <DocumentDashboard documents={documents} />
+      ) : (
+        <>
+        {/* KPI Stats Cards */}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
@@ -1936,6 +1877,8 @@ export function DocumentHub() {
           )}
         </CardContent>
       </Card>
+      </>
+      )}
 
       {/* Revision History & Secure Detail Sheet Modal */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
@@ -2457,12 +2400,36 @@ export function DocumentHub() {
                           <form onSubmit={handleUploadRevision} className="space-y-4 pt-2">
                             <div className="space-y-2">
                               <Label className="text-sm font-medium">Choose Revised File (PDF/PNG/JPG)</Label>
-                              <Input 
-                                type="file" 
-                                onChange={(e) => handleFileChange(e, 'revision')}
-                                accept=".pdf,.png,.jpg,.jpeg"
-                                required
-                              />
+                              <div
+                                className={`relative border-2 border-dashed rounded-md p-4 transition-colors ${
+                                  isDraggingRevision 
+                                    ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' 
+                                    : 'border-input hover:bg-muted/50'
+                                }`}
+                                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingRevision(true); }}
+                                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingRevision(false); }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setIsDraggingRevision(false);
+                                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                    handleFileChange({ target: { files: e.dataTransfer.files } } as unknown as React.ChangeEvent<HTMLInputElement>, 'revision');
+                                  }
+                                }}
+                              >
+                                <Input 
+                                  type="file" 
+                                  onChange={(e) => handleFileChange(e, 'revision')}
+                                  accept=".pdf,.png,.jpg,.jpeg"
+                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  required
+                                />
+                                <div className="flex flex-col items-center justify-center text-sm text-muted-foreground pointer-events-none">
+                                  <Upload className="w-6 h-6 mb-2 text-indigo-400" />
+                                  <span className="font-medium">Click or drag file here</span>
+                                </div>
+                              </div>
                             </div>
 
                             <div className="space-y-2">
@@ -2865,7 +2832,36 @@ export function DocumentHub() {
               </Select>
             </div>
 
-            <div className="shrink-0 border-2 border-dashed border-indigo-200 dark:border-indigo-900/50 rounded-xl p-6 flex flex-col items-center justify-center bg-indigo-50/30 dark:bg-indigo-900/10 transition-colors hover:bg-indigo-50/50 cursor-pointer relative overflow-hidden">
+            <div 
+              className={`shrink-0 border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors cursor-pointer relative overflow-hidden ${
+                isDragging 
+                  ? 'border-indigo-500 bg-indigo-100 dark:bg-indigo-900/30' 
+                  : 'border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/30 dark:bg-indigo-900/10 hover:bg-indigo-50/50'
+              }`}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                  const fakeEvent = { target: { files: e.dataTransfer.files } };
+                  handleBatchFileChange(fakeEvent as unknown as React.ChangeEvent<HTMLInputElement>);
+                }
+              }}
+            >
               <input
                 type="file"
                 multiple
@@ -2973,137 +2969,137 @@ export function DocumentHub() {
 
 
       {/* New Folder Dialog */}
-      <Dialog open={isNewFolderOpen} onOpenChange={setIsNewFolderOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FolderPlus className="w-5 h-5 text-indigo-500" /> Create New Folder
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreateFolder} className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Folder Name</Label>
-              <Input 
-                placeholder="e.g. Project Alpha, FY2024" 
-                value={newFolderName} 
-                onChange={e => setNewFolderName(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsNewFolderOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-indigo-600 text-white hover:bg-indigo-700">Create Folder</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <NewFolderDialog
+        isOpen={isNewFolderOpen}
+        onOpenChange={setIsNewFolderOpen}
+        newFolderName={newFolderName}
+        setNewFolderName={setNewFolderName}
+        onCreateFolder={handleCreateFolder}
+      />
 
-      {/* Quick Preview Dialog */}
-      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[85vh] flex flex-col p-0 overflow-hidden bg-background">
-          <DialogHeader className="p-4 border-b border-border shrink-0 bg-muted/20">
-            <DialogTitle className="flex items-center justify-between">
-              <span className="flex items-center gap-2 font-sans">
-                <Eye className="w-5 h-5 text-indigo-500" />
-                Quick Preview: {previewDoc?.fileName}
-              </span>
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 flex overflow-hidden">
-            {/* Left side: Embedded PDF/Image Viewer */}
-            <div className="flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900/50 flex flex-col items-center justify-center p-4">
-              {previewDoc ? (
-                previewDoc.fileUrl.startsWith('data:image') || previewDoc.fileUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i) ? (
-                  <img src={previewDoc.fileUrl} alt={previewDoc.fileName} className="max-w-full max-h-full object-contain shadow-sm bg-white" />
-                ) : previewDoc.fileUrl.startsWith('data:application/pdf') || previewDoc.fileUrl.match(/\.pdf$/i) || previewDoc.fileName.toLowerCase().endsWith('.pdf') ? (
-                  <iframe src={previewDoc.fileUrl} title={previewDoc.fileName} className="w-full h-full rounded shadow-sm bg-white border-0" />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-muted-foreground p-8 bg-white dark:bg-zinc-950 rounded-lg shadow-sm border border-border">
-                    <FileText className="w-16 h-16 mb-4 text-indigo-300" />
-                    <p className="text-lg font-medium">Preview not available for this file type in standard browser</p>
-                    <p className="text-sm mt-1 mb-4">You can download the file to view it.</p>
-                    <Button onClick={() => window.open(previewDoc.fileUrl, '_blank')} variant="outline">
-                      <Download className="w-4 h-4 mr-2" /> Download File
-                    </Button>
-                  </div>
-                )
-              ) : null}
-            </div>
-
-            {/* Right side: Criptografía y Firmas Digitales eBL Panel */}
-            <div className="w-[340px] border-l border-border bg-card p-4 overflow-y-auto flex flex-col justify-between shrink-0">
-              <div className="space-y-4">
-                <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-                  <ShieldCheck className="w-5 h-5" />
-                  <h3 className="text-sm font-bold uppercase tracking-wider font-sans">eBL Cryptography</h3>
+      {/* Quick Preview Side Panel */}
+      <AnimatePresence>
+        {isPreviewOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPreviewOpen(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative z-50 w-[95vw] sm:w-[90vw] max-w-5xl h-full bg-background shadow-2xl flex flex-col border-l border-border"
+            >
+              <div className="p-4 border-b border-border shrink-0 bg-muted/20 flex items-center justify-between">
+                <span className="flex items-center gap-2 font-sans font-semibold text-lg">
+                  <Eye className="w-5 h-5 text-indigo-500" />
+                  Quick Preview: {previewDoc?.fileName}
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => setIsPreviewOpen(false)}>
+                  <X className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                </Button>
+              </div>
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                {/* Left side: Embedded PDF/Image Viewer */}
+                <div className="flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900/50 flex flex-col items-center justify-center p-4">
+                  {previewDoc ? (
+                    previewDoc.fileUrl.startsWith('data:image') || previewDoc.fileUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i) ? (
+                      <img src={previewDoc.fileUrl} alt={previewDoc.fileName} className="max-w-full max-h-full object-contain shadow-sm bg-white" />
+                    ) : previewDoc.fileUrl.startsWith('data:application/pdf') || previewDoc.fileUrl.match(/\.pdf$/i) || previewDoc.fileName.toLowerCase().endsWith('.pdf') ? (
+                      <iframe src={previewDoc.fileUrl} title={previewDoc.fileName} className="w-full h-full rounded shadow-sm bg-white border-0" />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-muted-foreground p-8 bg-white dark:bg-zinc-950 rounded-lg shadow-sm border border-border">
+                        <FileText className="w-16 h-16 mb-4 text-indigo-300" />
+                        <p className="text-lg font-medium">Preview not available for this file type in standard browser</p>
+                        <p className="text-sm mt-1 mb-4">You can download the file to view it.</p>
+                        <Button onClick={() => window.open(previewDoc.fileUrl, '_blank')} variant="outline">
+                          <Download className="w-4 h-4 mr-2" /> Download File
+                        </Button>
+                      </div>
+                    )
+                  ) : null}
                 </div>
-                
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Cryptographic sealing secures this file against tampering. The SHA-256 digital signature acts as an unalterable proof of origin.
-                </p>
 
-                <div className="border border-indigo-100 dark:border-indigo-950/50 bg-indigo-50/10 dark:bg-indigo-950/10 rounded-lg p-3 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground">Digital Seal</span>
-                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white flex items-center gap-1 text-[10px] px-1.5 py-0.5 font-sans">
-                      <CheckCircle className="w-3 h-3" /> VERIFIED
-                    </Badge>
-                  </div>
-                  
-                  {previewDoc && (
-                    <div className="space-y-2 font-mono text-[11px]">
-                      <div>
-                        <span className="block text-[9px] text-muted-foreground font-sans uppercase">SHA-256 Ledger Digest</span>
-                        <span className="text-foreground break-all bg-muted/40 p-1.5 rounded block mt-0.5 border border-border/50 text-[10px]">
-                          {(previewDoc.extractedMetadata as any)?.digitalSignature || "8cb2a6c117d983e20f2b3e4f7a8b9c0d1e2f3a4b5c6d7e8f90123456789abcde"}
-                        </span>
+                {/* Right side: Criptografía y Firmas Digitales eBL Panel */}
+                <div className="w-full md:w-[340px] border-t md:border-t-0 md:border-l border-border bg-card p-4 overflow-y-auto flex flex-col justify-between shrink-0">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                      <ShieldCheck className="w-5 h-5" />
+                      <h3 className="text-sm font-bold uppercase tracking-wider font-sans">eBL Cryptography</h3>
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Cryptographic sealing secures this file against tampering. The SHA-256 digital signature acts as an unalterable proof of origin.
+                    </p>
+
+                    <div className="border border-indigo-100 dark:border-indigo-950/50 bg-indigo-50/10 dark:bg-indigo-950/10 rounded-lg p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Digital Seal</span>
+                        <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white flex items-center gap-1 text-[10px] px-1.5 py-0.5 font-sans">
+                          <CheckCircle className="w-3 h-3" /> VERIFIED
+                        </Badge>
                       </div>
                       
-                      <div>
-                        <span className="block text-[9px] text-muted-foreground font-sans uppercase">Certifying Entity</span>
-                        <span className="text-foreground block mt-0.5 font-sans font-semibold">
-                          {(previewDoc.extractedMetadata as any)?.signedBy || previewDoc.uploadedBy || "Customs eBL Authority Agent"}
-                        </span>
-                      </div>
+                      {previewDoc && (
+                        <div className="space-y-2 font-mono text-[11px]">
+                          <div>
+                            <span className="block text-[9px] text-muted-foreground font-sans uppercase">SHA-256 Ledger Digest</span>
+                            <span className="text-foreground break-all bg-muted/40 p-1.5 rounded block mt-0.5 border border-border/50 text-[10px]">
+                              {(previewDoc.extractedMetadata as any)?.digitalSignature || "8cb2a6c117d983e20f2b3e4f7a8b9c0d1e2f3a4b5c6d7e8f90123456789abcde"}
+                            </span>
+                          </div>
+                          
+                          <div>
+                            <span className="block text-[9px] text-muted-foreground font-sans uppercase">Certifying Entity</span>
+                            <span className="text-foreground block mt-0.5 font-sans font-semibold">
+                              {(previewDoc.extractedMetadata as any)?.signedBy || previewDoc.uploadedBy || "Customs eBL Authority Agent"}
+                            </span>
+                          </div>
 
-                      <div>
-                        <span className="block text-[9px] text-muted-foreground font-sans uppercase">Signing Timestamp</span>
-                        <span className="text-foreground block mt-0.5 font-sans">
-                          {(previewDoc.extractedMetadata as any)?.signedAt ? new Date((previewDoc.extractedMetadata as any).signedAt).toLocaleString() : new Date(previewDoc.createdAt).toLocaleString()}
-                        </span>
-                      </div>
+                          <div>
+                            <span className="block text-[9px] text-muted-foreground font-sans uppercase">Signing Timestamp</span>
+                            <span className="text-foreground block mt-0.5 font-sans">
+                              {(previewDoc.extractedMetadata as any)?.signedAt ? new Date((previewDoc.extractedMetadata as any).signedAt).toLocaleString() : new Date(previewDoc.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/30 p-2.5 rounded border border-border/40 font-sans leading-relaxed">
-                  <Lock className="w-4 h-4 text-indigo-500 shrink-0" />
-                  <span>Notarized under WCO eBL Framework. The document matches its port departure ledger signature.</span>
+                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/30 p-2.5 rounded border border-border/40 font-sans leading-relaxed">
+                      <Lock className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <span>Notarized under WCO eBL Framework. The document matches its port departure ledger signature.</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border flex flex-col gap-2 mt-4">
+                    <Button 
+                      onClick={() => window.open(previewDoc?.fileUrl, '_blank')} 
+                      size="sm" 
+                      className="w-full bg-indigo-600 text-white hover:bg-indigo-700 h-8 text-xs font-semibold"
+                    >
+                      <Download className="w-3.5 h-3.5 mr-1.5" /> Download Document
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setIsPreviewOpen(false)}
+                      className="w-full h-8 text-xs font-medium"
+                    >
+                      Close Preview
+                    </Button>
+                  </div>
                 </div>
               </div>
-
-              <div className="pt-4 border-t border-border flex flex-col gap-2">
-                <Button 
-                  onClick={() => window.open(previewDoc?.fileUrl, '_blank')} 
-                  size="sm" 
-                  className="w-full bg-indigo-600 text-white hover:bg-indigo-700 h-8 text-xs font-semibold"
-                >
-                  <Download className="w-3.5 h-3.5 mr-1.5" /> Download Document
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setIsPreviewOpen(false)}
-                  className="w-full h-8 text-xs font-medium"
-                >
-                  Close Preview
-                </Button>
-              </div>
-            </div>
+            </motion.div>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </AnimatePresence>
       {/* OCR Correction Modal */}
       <Dialog open={isOcrCorrectionOpen} onOpenChange={setIsOcrCorrectionOpen}>
         <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 overflow-hidden flex flex-col bg-background">
@@ -3239,211 +3235,20 @@ export function DocumentHub() {
       </Dialog>
 
       {/* Expiry Configuration Dialog */}
-      <Dialog open={isExpiryConfigOpen} onOpenChange={setIsExpiryConfigOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarRange className="w-5 h-5 text-indigo-500" /> Custom Expiry Warning Thresholds
-            </DialogTitle>
-            <CardDescription>
-              Configure the number of days prior to document expiration to trigger push alerts and email warning dispatches for port operators.
-            </CardDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
-            {Object.keys(customExpiryDays).map((docType) => (
-              <div key={docType} className="flex items-center justify-between gap-4 border-b border-border/40 pb-3 last:border-0 last:pb-0">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-bold text-foreground">{docType}</p>
-                  <p className="text-[10px] text-muted-foreground">Grace period alert trigger threshold</p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    max="180"
-                    className="w-20 text-center font-mono text-xs font-bold" 
-                    value={customExpiryDays[docType]} 
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 1;
-                      setCustomExpiryDays(prev => ({
-                        ...prev,
-                        [docType]: val
-                      }));
-                    }}
-                  />
-                  <span className="text-xs text-muted-foreground font-medium">Days</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsExpiryConfigOpen(false)}>Cancel</Button>
-            <Button 
-              className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold" 
-              onClick={() => {
-                localStorage.setItem('scm_custom_expiry_thresholds', JSON.stringify(customExpiryDays));
-                toast.success('Custom document warning dispatch thresholds successfully synchronized!');
-                setIsExpiryConfigOpen(false);
-              }}
-            >
-              Save Configurations
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExpiryConfigDialog
+        isOpen={isExpiryConfigOpen}
+        onOpenChange={setIsExpiryConfigOpen}
+        customExpiryDays={customExpiryDays}
+        setCustomExpiryDays={setCustomExpiryDays}
+      />
 
       {/* WebAuthn Biometric & Physical Token Registration settings */}
-      <Dialog open={isWebAuthnSettingsOpen} onOpenChange={setIsWebAuthnSettingsOpen}>
-        <DialogContent className="sm:max-w-[540px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Fingerprint className="w-5 h-5 text-indigo-500 animate-pulse" /> Biometric & FIDO2 Security Keys
-            </DialogTitle>
-            <CardDescription>
-              Customs brokers and logistics administrators can register multiple physical security keys (YubiKey, Apple Touch ID, Google Titan) to secure high-value manifest signatures.
-            </CardDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            {/* Active Keys List */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Registered Keys</h4>
-              {webAuthnKeys.length === 0 ? (
-                <div className="p-4 border border-dashed rounded-lg text-center text-xs text-muted-foreground">
-                  No hardware security keys registered. Register a physical token below to enforce high-value manifest cryptographic sealing.
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                  {webAuthnKeys.map((key) => {
-                    const isWarning = key.status === 'Warning';
-                    return (
-                      <div 
-                        key={key.id} 
-                        className={`p-3 rounded-lg border text-xs flex items-center justify-between gap-3 ${
-                          isWarning 
-                            ? 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50' 
-                            : 'bg-muted/30 border-border/60'
-                        }`}
-                      >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-foreground">{key.name}</span>
-                            <Badge variant="outline" className="text-[9px] uppercase tracking-wider bg-background px-1.5 py-0">
-                              {key.type}
-                            </Badge>
-                          </div>
-                          <div className="text-[10px] text-muted-foreground flex items-center gap-2">
-                            <span>Registered: {key.registeredAt}</span>
-                            <span>•</span>
-                            <span className={isWarning ? 'text-amber-600 dark:text-amber-400 font-bold' : ''}>
-                              Expires: {key.expiresAt}
-                            </span>
-                          </div>
-                          {isWarning && (
-                            <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-1">
-                              <AlertCircle className="w-3 h-3 shrink-0" /> Expiry warning dispatched. Re-registration or rolling replacement recommended.
-                            </p>
-                          )}
-                        </div>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-7 text-[10px] text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 font-bold"
-                          onClick={() => {
-                            const updated = webAuthnKeys.filter(k => k.id !== key.id);
-                            setWebAuthnKeys(updated);
-                            localStorage.setItem('scm_webauthn_credentials', JSON.stringify(updated));
-                            toast.success(`Key "${key.name}" de-registered successfully.`);
-                          }}
-                        >
-                          Revoke
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Registration Form */}
-            <div className="p-4 border border-border/80 rounded-xl bg-muted/20 space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Plus className="w-3.5 h-3.5 text-indigo-500" /> Register New Physical Security Token
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Key Name / Label</Label>
-                  <Input 
-                    placeholder="e.g. YubiKey 5 NFC (Backup)" 
-                    className="h-8 text-xs font-medium"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase font-bold text-muted-foreground">Token Interface</Label>
-                  <Select value={newKeyType} onValueChange={setNewKeyType}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="FIDO2 NFC Key">FIDO2 NFC Key</SelectItem>
-                      <SelectItem value="FIDO2 USB Token">FIDO2 USB Token</SelectItem>
-                      <SelectItem value="Touch ID Biometric">Touch ID Biometric</SelectItem>
-                      <SelectItem value="Face ID / Windows Hello">Face ID / Windows Hello</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="pt-2 flex justify-end">
-                <Button 
-                  size="sm" 
-                  disabled={isRegisteringKey || !newKeyName.trim()}
-                  className="bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs h-8 px-4"
-                  onClick={async () => {
-                    setIsRegisteringKey(true);
-                    toast.loading("Querying biometric interface & security key handshake...", { id: 'webauthn-register' });
-                    
-                    await new Promise(resolve => setTimeout(resolve, 2200));
-                    
-                    const newKey = {
-                      id: Math.random().toString(),
-                      name: newKeyName.trim(),
-                      type: newKeyType,
-                      registeredAt: new Date().toISOString().split('T')[0],
-                      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                      status: 'Active' as const
-                    };
-                    
-                    const updated = [...webAuthnKeys, newKey];
-                    setWebAuthnKeys(updated);
-                    localStorage.setItem('scm_webauthn_credentials', JSON.stringify(updated));
-                    
-                    setIsRegisteringKey(false);
-                    setNewKeyName('');
-                    toast.success(`FIDO2 Security Key "${newKey.name}" successfully enrolled to active broker profile!`, { id: 'webauthn-register', duration: 4000 });
-                  }}
-                >
-                  {isRegisteringKey ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Touch Security Key...
-                    </>
-                  ) : (
-                    <>
-                      <Fingerprint className="w-3.5 h-3.5 mr-1.5" /> Initialize Registration Handshake
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsWebAuthnSettingsOpen(false)}>Close Security Panel</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <WebAuthnSettingsDialog
+        isOpen={isWebAuthnSettingsOpen}
+        onOpenChange={setIsWebAuthnSettingsOpen}
+        webAuthnKeys={webAuthnKeys}
+        setWebAuthnKeys={setWebAuthnKeys}
+      />
       </div>
     </div>
   );

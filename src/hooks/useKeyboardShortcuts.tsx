@@ -33,6 +33,15 @@ export function useKeyboardShortcuts() {
             e.preventDefault();
             navigate('/warehouses');
             break;
+          case 'k':
+            e.preventDefault();
+            window.dispatchEvent(new Event('open-command-menu'));
+            break;
+          case 'n':
+            e.preventDefault();
+            navigate('/booking');
+            setTimeout(() => window.dispatchEvent(new Event('open-new-booking')), 100);
+            break;
         }
       }
     };
@@ -53,6 +62,8 @@ export function useKeyboardShortcuts() {
           <li><kbd className="bg-muted px-1 rounded border">{modifier}+P</kbd> : Parties</li>
           <li><kbd className="bg-muted px-1 rounded border">{modifier}+R</kbd> : Rates</li>
           <li><kbd className="bg-muted px-1 rounded border">{modifier}+W</kbd> : Warehouses</li>
+          <li><kbd className="bg-muted px-1 rounded border">{modifier}+K</kbd> : Global Search</li>
+          <li><kbd className="bg-muted px-1 rounded border">{modifier}+N</kbd> : New Booking</li>
         </ul>
       </div>,
       { duration: 5000 }

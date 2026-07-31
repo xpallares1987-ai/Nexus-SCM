@@ -1,3 +1,5 @@
+import { CreateShipmentDialog } from "./dialogs/CreateShipmentDialog";
+import { LiveTrackingMap } from "./LiveTrackingMap";
 import { ShipmentTrackingMap } from './ShipmentTrackingMap';
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/data-display/card';
@@ -16,6 +18,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchApi } from '../../lib/api';
 import { toast } from 'sonner';
 import { ShipmentTracking } from './ShipmentTracking';
+import { ShipmentDocumentsTab } from './ShipmentDocumentsTab';
 import { ShipmentTimeline } from './ShipmentTimeline';
 import { InsuranceBourseWidget } from './InsuranceBourseWidget';
 import { CarbonLedgerWidget } from './CarbonLedgerWidget';
@@ -32,90 +35,17 @@ import { Calculator, Filter, X, TrendingUp, Clock, Package, DollarSign, ChevronL
 
 
 
-
-const LiveTrackingMap = ({ shipment }: { shipment: any }) => {
-  const [position, setPosition] = React.useState({ lat: 40, lng: -40 }); // Mock mid-Atlantic
-  const [isTracking, setIsTracking] = React.useState(true);
-
-  React.useEffect(() => {
-    // Generate a deterministically random start based on shipment id
-    const seed = shipment.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    setPosition({
-      lat: 20 + (seed % 40) - 20,
-      lng: -60 + (seed % 100) - 50
-    });
-  }, [shipment.id]);
-
-  React.useEffect(() => {
-    if (!isTracking) return;
-    const interval = setInterval(() => {
-      setPosition(prev => ({
-        lat: prev.lat + (Math.random() - 0.5) * 0.5,
-        lng: prev.lng + (Math.random() - 0.2) * 0.5, 
-      }));
-    }, 2000);
-return () => clearInterval(interval);
-  }, [isTracking]);
-
-  React.useEffect(() => {
-    if (shipment.status === 'Delivered' || shipment.status === 'Draft' || shipment.status === 'Booked') {
-      setIsTracking(false);
-    } else {
-      setIsTracking(true);
-    }
-  }, [shipment.status]);
-
-  return (
-    <div className="relative w-full h-48 bg-slate-100 dark:bg-slate-800 rounded-md overflow-hidden border mt-4">
-      <div 
-        className="absolute inset-0 opacity-40 dark:opacity-20"
-        style={{
-          backgroundImage: 'url("https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg")',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
-        }}
-      />
-      
-      {/* Route Line Mock */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
-        <path d={`M 20 100 Q ${50 + position.lng * 2} ${50 - position.lat * 2} ${80 + position.lng * 3} 40`} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 4" className="text-primary" />
-      </svg>
-      
-      <div 
-        className="absolute transition-all duration-1000 ease-linear flex flex-col items-center z-10"
-        style={{ 
-          top: `${Math.max(10, Math.min(90, 50 - position.lat))}%`, 
-          left: `${Math.max(10, Math.min(90, 50 + position.lng))}%` 
-        }}
-      >
-        <div className="relative">
-          {isTracking && <div className="absolute -inset-2 bg-blue-500/40 rounded-full animate-ping" />}
-          <div className={`relative w-3.5 h-3.5 ${isTracking ? 'bg-blue-600' : 'bg-muted-foreground'} rounded-full border-2 border-white dark:border-zinc-900 shadow-md`} />
-        </div>
-        <div className="mt-1.5 bg-background/95 backdrop-blur-sm text-[10px] font-medium px-2 py-0.5 rounded shadow-sm whitespace-nowrap border flex items-center gap-1">
-          <MapPin className="w-3 h-3 text-muted-foreground" />
-          {position.lat.toFixed(4)}, {position.lng.toFixed(4)}
-        </div>
-      </div>
-      <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
-        <Badge variant={isTracking ? 'default' : 'secondary'} className={isTracking ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' : ''}>
-          {isTracking ? <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live GPS</span> : 'Last Known Location'}
-        </Badge>
-      </div>
-    </div>
-  );
-};
-
 const calculateProgress = (status: string) => {
   switch (status?.toLowerCase()) {
-    case 'booked': return 10;
-    case 'pending': return 15;
-    case 'gate in': return 25;
-    case 'loaded': return 40;
-    case 'departed': return 50;
-    case 'in transit': return 60;
-    case 'arrived': return 80;
-    case 'customs cleared': return 90;
+    case "booked": return 10;
+    case "pending": return 15;
+    case "gate in": return 25;
+    case "loaded": return 40;
+    case "departed": return 50;
+    case "in transit": return 60;
+    case "arrived": return 80;
+    case "customs cleared": return 90;
+
     case 'out for delivery': return 95;
     case 'delivered': return 100;
     case 'cancelled': return 0;
@@ -332,6 +262,7 @@ const ShipmentTableRow = React.memo(({
                 <div className="flex justify-between items-center mb-4">
                   <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="documents">Documents</TabsTrigger>
                     <TabsTrigger value="history">History Log</TabsTrigger>
                   </TabsList>
                 </div>
@@ -367,6 +298,9 @@ const ShipmentTableRow = React.memo(({
                 </TabsContent>
                 <TabsContent value="history" className="m-0 bg-background/50 rounded-md border border-border/50">
                   <ShipmentHistoryLog shipmentId={s.id} />
+                </TabsContent>
+                <TabsContent value="documents" className="m-0 bg-background/50 rounded-md border border-border/50">
+                  <ShipmentDocumentsTab shipmentId={s.id} />
                 </TabsContent>
               </Tabs>
             </div>
@@ -530,6 +464,12 @@ export function ShipmentManagement() {
   }, [ref, type, shipperId, consigneeId, carrierId, status, priority, origin, dest, hbl, mbl, awb, eta, etd, editingShipment]);
 
     const [etaUpdates, setEtaUpdates] = useState<Record<string, { newEta: string, timestamp: Date }>>({});
+    
+    // Keep track of current selected shipment for WS events
+    const selectedShipmentRef = useRef<any>(null);
+    useEffect(() => {
+      selectedShipmentRef.current = selectedShipment;
+    }, [selectedShipment]);
 
   useEffect(() => {
     const handleWsMessageDOM = (e: any) => {
@@ -566,6 +506,12 @@ export function ShipmentManagement() {
            const deletedId = payload.id || payload;
            if (deletedId) {
               setShipments(prev => prev.filter(s => s.id !== deletedId));
+           }
+        } else if (data.type === 'SHIPMENT_TRACKING_EVENT') {
+           const { shipmentId, event } = payload;
+           if (event && selectedShipmentRef.current?.id === shipmentId) {
+             setEvents(prev => [...prev, event]);
+             toast.info(`New tracking update: ${event.description}`);
            }
         }
       } catch (err) {
@@ -609,7 +555,7 @@ export function ShipmentManagement() {
     try {
       const [shipData, partyData] = await Promise.all([
         fetchApi('/shipments', token),
-        fetchApi('/parties', token)
+        fetchApi('/entities', token)
       ]);
       setShipments(shipData);
       setParties(partyData);
@@ -1097,212 +1043,38 @@ export function ShipmentManagement() {
               </button>
             )}
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger render={
-              <Button className="h-10"><Plus className="w-4 h-4 mr-2" /> {t('add')} Shipment</Button>
-            } />
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold tracking-tight">Create New Shipment</DialogTitle>
-            </DialogHeader>
-            
-            <div className="mb-6">
-              <DocumentScanner 
-                onDataExtracted={handleDocumentDataExtracted} 
-                parties={parties}
-                activeFormValues={{
-                  referenceNumber: ref,
-                  type,
-                  originPort: origin,
-                  destinationPort: dest,
-                  shipperId,
-                  consigneeId,
-                  carrierId
-                }}
-              />
-            </div>
-            
-            <form onSubmit={handleCreate} className="space-y-6">
-              {/* Section 1: General Info */}
-              <div className="bg-card dark:bg-card/40 border rounded-xl p-5 space-y-4 shadow-xs">
-                <div className="flex items-center gap-2 border-b pb-2 mb-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">1</span>
-                  <h4 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">General Info & Cargo</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Reference No.</Label>
-                    <Input value={ref} onChange={e => setRef(e.target.value)} required placeholder="FFW-2026-101" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Transport Mode & Type</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:bg-background/20"
-                      value={type} 
-                      onChange={e => setType(e.target.value)}
-                    >
-                      <option value="Sea-FCL">Sea-FCL</option>
-                      <option value="Sea-FCL 20' DV">Sea-FCL 20' DV</option>
-                      <option value="Sea-FCL 40' DV">Sea-FCL 40' DV</option>
-                      <option value="Sea-FCL 40' HC">Sea-FCL 40' HC</option>
-                      <option value="Sea-LCL">Sea-LCL</option>
-                      <option value="Air">Air</option>
-                      <option value="Road">Road</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Priority</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:bg-background/20"
-                      value={priority} 
-                      onChange={e => setPriority(e.target.value)}
-                    >
-                      <option value="Low">Low</option>
-                      <option value="Normal">Normal</option>
-                      <option value="High">High</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Status</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:bg-background/20"
-                      value={status} 
-                      onChange={e => setStatus(e.target.value)}
-                    >
-                      <option value="Draft">Draft</option>
-                      <option value="Booked">Booked</option>
-                      <option value="InTransit">InTransit</option>
-                      <option value="Arrived">Arrived</option>
-                      <option value="CustomsCleared">CustomsCleared</option>
-                      <option value="Delivered">Delivered</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 2: Route Ports */}
-              <div className="bg-card dark:bg-card/40 border rounded-xl p-5 space-y-4 shadow-xs">
-                <div className="flex items-center gap-2 border-b pb-2 mb-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">2</span>
-                  <h4 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Route & Key Ports</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Origin Port (UN/LOCODE)</Label>
-                    <UNLocodeSelector value={origin} onChange={setOrigin} placeholder="e.g., CNSHA (Shanghai)" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Destination Port (UN/LOCODE)</Label>
-                    <UNLocodeSelector value={dest} onChange={setDest} placeholder="e.g., ESBCN (Barcelona)" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 3: Commercial Parties */}
-              <div className="bg-card dark:bg-card/40 border rounded-xl p-5 space-y-4 shadow-xs">
-                <div className="flex items-center gap-2 border-b pb-2 mb-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">3</span>
-                  <h4 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Commercial Parties</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Shipper</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:bg-background/20"
-                      value={shipperId} 
-                      onChange={e => setShipperId(e.target.value)}
-                    >
-                      <option value="">Select Shipper...</option>
-                      {parties.filter(p => {
-                        const typeVal = (p.category || p.type || '').toLowerCase();
-                        return typeVal === 'client' || typeVal === 'shipper' || typeVal === 'supplier';
-                      }).map(p => (
-                        <option key={p.id} value={p.id}>{p.companyName || p.name || p.id}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Consignee</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:bg-background/20"
-                      value={consigneeId} 
-                      onChange={e => setConsigneeId(e.target.value)}
-                    >
-                      <option value="">Select Consignee...</option>
-                      {parties.filter(p => {
-                        const typeVal = (p.category || p.type || '').toLowerCase();
-                        return typeVal === 'client' || typeVal === 'consignee' || typeVal === 'supplier';
-                      }).map(p => (
-                        <option key={p.id} value={p.id}>{p.companyName || p.name || p.id}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">Carrier / Shipping Line</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:bg-background/20"
-                      value={carrierId} 
-                      onChange={e => setCarrierId(e.target.value)}
-                    >
-                      <option value="">Select Carrier...</option>
-                      {parties.filter(p => {
-                        const typeVal = (p.category || p.type || '').toLowerCase();
-                        return typeVal === 'carrier' || typeVal === 'shipping line' || typeVal === 'agent';
-                      }).map(p => (
-                        <option key={p.id} value={p.id}>{p.companyName || p.name || p.id}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Section 4: Shipping Documents */}
-              <div className="bg-card dark:bg-card/40 border rounded-xl p-5 space-y-4 shadow-xs">
-                <div className="flex items-center gap-2 border-b pb-2 mb-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">4</span>
-                  <h4 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Shipping Documents</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block font-mono">House Bill of Lading (HBL)</Label>
-                    <Input value={hbl} onChange={e => setHbl(e.target.value)} placeholder="e.g., HBLSH10293" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block font-mono">Master Bill of Lading (MBL)</Label>
-                    <Input value={mbl} onChange={e => setMbl(e.target.value)} placeholder="e.g., MBLMAEU83749" />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block font-mono">Air Waybill (AWB)</Label>
-                    <Input value={awb} onChange={e => setAwb(e.target.value)} placeholder="e.g., AWB012-39485" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 5: Milestones */}
-              <div className="bg-card dark:bg-card/40 border rounded-xl p-5 space-y-4 shadow-xs">
-                <div className="flex items-center gap-2 border-b pb-2 mb-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">5</span>
-                  <h4 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Milestones & Timelines</h4>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">ETD (Estimated Departure)</Label>
-                    <Input type="datetime-local" value={etd} onChange={e => setEtd(e.target.value)} />
-                  </div>
-                  <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1 block">ETA (Estimated Arrival)</Label>
-                    <Input type="datetime-local" value={eta} onChange={e => setEta(e.target.value)} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="w-1/4">Cancel</Button>
-                <Button type="submit" className="w-3/4">{t('save')} Shipment</Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+          <CreateShipmentDialog
+            isOpen={isOpen}
+            setIsOpen={setIsOpen}
+            handleCreate={handleCreate}
+            handleDocumentDataExtracted={handleDocumentDataExtracted}
+            parties={parties}
+            ref={ref}
+            setRef={setRef}
+            type={type}
+            setType={setType}
+            origin={origin}
+            setOrigin={setOrigin}
+            dest={dest}
+            setDest={setDest}
+            shipperId={shipperId}
+            setShipperId={setShipperId}
+            consigneeId={consigneeId}
+            setConsigneeId={setConsigneeId}
+            carrierId={carrierId}
+            setCarrierId={setCarrierId}
+            hbl={hbl}
+            setHbl={setHbl}
+            mbl={mbl}
+            setMbl={setMbl}
+            awb={awb}
+            setAwb={setAwb}
+            etd={etd}
+            setEtd={setEtd}
+            eta={eta}
+            setEta={setEta}
+            t={t}
+          />
 
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -1401,10 +1173,10 @@ export function ShipmentManagement() {
                     >
                       <option value="">Select Shipper...</option>
                       {parties.filter(p => {
-                        const typeVal = (p.category || p.type || '').toLowerCase();
-                        return typeVal === 'client' || typeVal === 'shipper' || typeVal === 'supplier';
+                        const typeVal = (p.companyType || p.companyType || '').toLowerCase();
+                        return typeVal === 'customer' || typeVal === 'shipper' || typeVal === 'supplier';
                       }).map(p => (
-                        <option key={p.id} value={p.id}>{p.companyName || p.name || p.id}</option>
+                        <option key={p.id} value={p.id}>{p.companyName || p.companyName || p.id}</option>
                       ))}
                     </select>
                   </div>
@@ -1417,10 +1189,10 @@ export function ShipmentManagement() {
                     >
                       <option value="">Select Consignee...</option>
                       {parties.filter(p => {
-                        const typeVal = (p.category || p.type || '').toLowerCase();
-                        return typeVal === 'client' || typeVal === 'consignee' || typeVal === 'supplier';
+                        const typeVal = (p.companyType || p.companyType || '').toLowerCase();
+                        return typeVal === 'customer' || typeVal === 'consignee' || typeVal === 'supplier';
                       }).map(p => (
-                        <option key={p.id} value={p.id}>{p.companyName || p.name || p.id}</option>
+                        <option key={p.id} value={p.id}>{p.companyName || p.companyName || p.id}</option>
                       ))}
                     </select>
                   </div>
@@ -1433,10 +1205,10 @@ export function ShipmentManagement() {
                     >
                       <option value="">Select Carrier...</option>
                       {parties.filter(p => {
-                        const typeVal = (p.category || p.type || '').toLowerCase();
+                        const typeVal = (p.companyType || p.companyType || '').toLowerCase();
                         return typeVal === 'carrier' || typeVal === 'shipping line' || typeVal === 'agent';
                       }).map(p => (
-                        <option key={p.id} value={p.id}>{p.companyName || p.name || p.id}</option>
+                        <option key={p.id} value={p.id}>{p.companyName || p.companyName || p.id}</option>
                       ))}
                     </select>
                   </div>
@@ -1786,7 +1558,7 @@ export function ShipmentManagement() {
                   onChange={e => setFilterCarrierId(e.target.value)}
                 >
                   <option value="All" className="bg-background">All Carriers</option>
-                  {parties.filter(p => p.type === 'Carrier' || p.category === 'Carrier').map(c => (
+                  {parties.filter(p => p.companyType === 'Carrier' || p.companyType === 'Carrier').map(c => (
                     <option key={c.id} value={c.id} className="bg-background">{c.companyName}</option>
                   ))}
                 </select>

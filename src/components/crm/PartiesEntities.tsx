@@ -1,115 +1,96 @@
-import React, { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/data-display/card';
 import { Button } from '@/components/ui/forms/button';
 import { Input } from '@/components/ui/forms/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/data-display/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms/select';
+import { Plus, Search, Building, Trash2, Edit } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/overlays/dialog';
-import { fetchApi } from '../../lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/forms/select';
 import { useAuth } from '../../contexts/AuthContext';
+import { fetchApi } from '../../lib/api';
 import { toast } from 'sonner';
-import { Plus, Search, Trash2, Edit, Users, Building } from 'lucide-react';
-import { cacheData, getCachedData } from '../../lib/idbCache';
+
+type Entity = {
+  id: string;
+  companyName: string;
+  companyType: string;
+  street?: string;
+  zipCode?: string;
+  city?: string;
+  federalState?: string;
+  countryIsoCode?: string;
+  countryName?: string;
+  unlocode?: string;
+  taxId?: string;
+  phone?: string;
+  email?: string;
+};
+
+const COMPANY_TYPES = [
+  'Carrier', 'Terminal', 'Agent', 'Broker', 'Supplier', 
+  'Customer', 'Haulier', 'Forwarder', 'Depot', 'Authority', 
+  'Inland Container Depot', 'Warehouse'
+];
 
 export function PartiesEntities() {
   const { token } = useAuth();
-  const [entities, setEntities] = useState<any[]>([]);
+  const [entities, setEntities] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  // Form State
-  const [category, setCategory] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [addressLine1, setAddressLine1] = useState('');
-  const [addressLine2, setAddressLine2] = useState('');
+  const [companyType, setCompanyType] = useState('');
+  const [street, setStreet] = useState('');
+  const [zipCode, setZipCode] = useState('');
   const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [country, setCountry] = useState('');
-
-  const CACHE_KEY = 'scm_parties_cache';
+  const [federalState, setFederalState] = useState('');
+  const [countryIsoCode, setCountryIsoCode] = useState('');
+  const [countryName, setCountryName] = useState('');
+  const [unlocode, setUnlocode] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
 
   const loadEntities = async () => {
     try {
-      setLoading(true);
-      // Try to load from IndexedDB first for fast render
-      const cached = await getCachedData<any[]>(CACHE_KEY);
-      if (cached && cached.length > 0) {
-        setEntities(cached);
-      }
-
-      if (token) {
-        const data = await fetchApi('/parties', token);
-        if (Array.isArray(data)) {
-          setEntities(data);
-          // Cache the fresh data
-          await cacheData(CACHE_KEY, data);
-        }
-      }
+      const data = await fetchApi('/entities', token);
+      setEntities(data);
     } catch (err) {
-      console.error('Failed to load parties:', err);
-      toast.error('Failed to load parties & entities');
+      toast.error('Failed to load entities');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadEntities();
+    if (token) loadEntities();
   }, [token]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const searchVal = params.get('search');
-    if (searchVal) {
-      setSearchQuery(decodeURIComponent(searchVal));
-    }
-    if (params.get('action') === 'create-entity') {
-      setIsAddOpen(true);
-    }
-    if (searchVal || params.get('action') === 'create-entity') {
-      // Clean up search param without full reload
-      const search = window.location.search
-        .replace(/[?&]action=create-entity/, '')
-        .replace(/[?&]search=[^&]+/, '')
-        .replace(/^&/, '?')
-        .replace(/^\?&/, '?');
-      const newUrl = window.location.pathname + (search === '?' || search === '' ? '' : search);
-      window.history.replaceState({}, '', newUrl);
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = {
+      companyName, companyType, street, zipCode, city, federalState,
+      countryIsoCode, countryName, unlocode, taxId, phone, email
+    };
+    
     try {
-      const payload = {
-        category,
-        companyName,
-        addressLine1,
-        addressLine2,
-        city,
-        state,
-        postalCode,
-        country
-      };
-
       if (isEdit && editId) {
-        await fetchApi(`/parties/${editId}`, token, {
+        await fetchApi(`/entities/${editId}`, token, {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
         toast.success('Entity updated successfully');
       } else {
-        await fetchApi('/parties', token, {
+        await fetchApi('/entities', token, {
           method: 'POST',
           body: JSON.stringify(payload)
         });
         toast.success('Entity created successfully');
       }
-
       setIsAddOpen(false);
       resetForm();
       loadEntities();
@@ -121,7 +102,7 @@ export function PartiesEntities() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this entity?')) return;
     try {
-      await fetchApi(`/parties/${id}`, token, {
+      await fetchApi(`/entities/${id}`, token, {
         method: 'DELETE'
       });
       toast.success('Entity deleted successfully');
@@ -131,45 +112,53 @@ export function PartiesEntities() {
     }
   };
 
-  const handleEdit = (entity: any) => {
+  const handleEdit = (entity: Entity) => {
     setIsEdit(true);
     setEditId(entity.id);
-    setCategory(entity.category);
     setCompanyName(entity.companyName);
-    setAddressLine1(entity.addressLine1 || '');
-    setAddressLine2(entity.addressLine2 || '');
+    setCompanyType(entity.companyType);
+    setStreet(entity.street || '');
+    setZipCode(entity.zipCode || '');
     setCity(entity.city || '');
-    setState(entity.state || '');
-    setPostalCode(entity.postalCode || '');
-    setCountry(entity.country || '');
+    setFederalState(entity.federalState || '');
+    setCountryIsoCode(entity.countryIsoCode || '');
+    setCountryName(entity.countryName || '');
+    setUnlocode(entity.unlocode || '');
+    setTaxId(entity.taxId || '');
+    setPhone(entity.phone || '');
+    setEmail(entity.email || '');
     setIsAddOpen(true);
   };
 
   const resetForm = () => {
     setIsEdit(false);
     setEditId(null);
-    setCategory('');
     setCompanyName('');
-    setAddressLine1('');
-    setAddressLine2('');
+    setCompanyType('');
+    setStreet('');
+    setZipCode('');
     setCity('');
-    setState('');
-    setPostalCode('');
-    setCountry('');
+    setFederalState('');
+    setCountryIsoCode('');
+    setCountryName('');
+    setUnlocode('');
+    setTaxId('');
+    setPhone('');
+    setEmail('');
   };
 
   const filteredEntities = entities.filter(e => 
     e.companyName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.country?.toLowerCase().includes(searchQuery.toLowerCase())
+    e.companyType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    e.countryIsoCode?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Parties & Entities</h1>
-          <p className="text-muted-foreground text-sm">Manage Shippers, Consignees, Carriers, Forwarding Agents, and Customs.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Entities</h1>
+          <p className="text-muted-foreground text-sm">Manage company profiles, partners, and stakeholders.</p>
         </div>
         <Dialog open={isAddOpen} onOpenChange={(open) => {
           setIsAddOpen(open);
@@ -180,52 +169,70 @@ export function PartiesEntities() {
               <Plus className="w-4 h-4 mr-2" /> Add Entity
             </div>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{isEdit ? 'Edit Entity' : 'Add New Entity'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 pt-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-2">
                   <label className="text-sm font-medium">Company Name</label>
                   <Input required value={companyName} onChange={e => setCompanyName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Category</label>
-                  <Select required value={category} onValueChange={setCategory}>
-                    <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
+                  <label className="text-sm font-medium">Company Type</label>
+                  <Select required value={companyType} onValueChange={setCompanyType}>
+                    <SelectTrigger><SelectValue placeholder="Select Type" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Shipper">Shipper</SelectItem>
-                      <SelectItem value="Consignee">Consignee</SelectItem>
-                      <SelectItem value="Carrier">Carrier</SelectItem>
-                      <SelectItem value="Forwarding Agent">Forwarding Agent</SelectItem>
-                      <SelectItem value="Customs">Customs</SelectItem>
+                      {COMPANY_TYPES.map(type => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 col-span-2">
-                  <label className="text-sm font-medium">Address Line 1</label>
-                  <Input required value={addressLine1} onChange={e => setAddressLine1(e.target.value)} />
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tax ID</label>
+                  <Input value={taxId} onChange={e => setTaxId(e.target.value)} />
                 </div>
-                <div className="space-y-2 col-span-2">
-                  <label className="text-sm font-medium">Address Line 2 (Optional)</label>
-                  <Input value={addressLine2} onChange={e => setAddressLine2(e.target.value)} />
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Street</label>
+                  <Input value={street} onChange={e => setStreet(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">City</label>
-                  <Input required value={city} onChange={e => setCity(e.target.value)} />
+                  <Input value={city} onChange={e => setCity(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">State / Province</label>
-                  <Input value={state} onChange={e => setState(e.target.value)} />
+                  <label className="text-sm font-medium">Federal State</label>
+                  <Input value={federalState} onChange={e => setFederalState(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Postal Code</label>
-                  <Input value={postalCode} onChange={e => setPostalCode(e.target.value)} />
+                  <label className="text-sm font-medium">ZIP Code</label>
+                  <Input value={zipCode} onChange={e => setZipCode(e.target.value)} />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Country Name</label>
+                  <Input value={countryName} onChange={e => setCountryName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Country</label>
-                  <Input required value={country} onChange={e => setCountry(e.target.value)} />
+                  <label className="text-sm font-medium">Country ISO Code</label>
+                  <Input value={countryIsoCode} onChange={e => setCountryIsoCode(e.target.value)} maxLength={2} />
+                </div>
+                
+                <div className="space-y-2 col-span-2">
+                  <label className="text-sm font-medium">UNLOCODE</label>
+                  <Input value={unlocode} onChange={e => setUnlocode(e.target.value)} placeholder="e.g. USNYC" />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Phone</label>
+                  <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">E-mail</label>
+                  <Input value={email} onChange={e => setEmail(e.target.value)} type="email" />
                 </div>
               </div>
               <div className="flex justify-end pt-4">
@@ -257,9 +264,9 @@ export function PartiesEntities() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Company Name</TableHead>
-                  <TableHead>Category</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Location</TableHead>
-                  <TableHead>Country</TableHead>
+                  <TableHead>Country ISO</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -279,9 +286,9 @@ export function PartiesEntities() {
                         <Building className="w-4 h-4 text-muted-foreground" />
                         {entity.companyName}
                       </TableCell>
-                      <TableCell>{entity.category}</TableCell>
-                      <TableCell>{entity.city}{entity.state ? `, ${entity.state}` : ''}</TableCell>
-                      <TableCell>{entity.country}</TableCell>
+                      <TableCell>{entity.companyType}</TableCell>
+                      <TableCell>{entity.city}{entity.federalState ? `, ${entity.federalState}` : ''}</TableCell>
+                      <TableCell>{entity.countryIsoCode}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(entity)}>
                           <Edit className="w-4 h-4" />

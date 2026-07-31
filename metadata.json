@@ -2,5 +2,5 @@
   "name": "Freight Forwarder SCM",
   "description": "Supply Chain Management app for Freight Forwarding operations.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

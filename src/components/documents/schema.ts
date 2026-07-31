@@ -1,10 +1,10 @@
 import { pgTable, text, timestamp, uuid, decimal, integer, jsonb } from "drizzle-orm/pg-core";
-import { parties } from "../crm/schema.ts";
+import { entities } from "../crm/schema.ts";
 import { shipments } from "../shipments/schema.ts";
 
 export const partyBlFormats = pgTable("party_bl_formats", {
   id: uuid("id").primaryKey().defaultRandom(),
-  partyId: uuid("party_id").references(() => parties.id, { onDelete: "cascade" }).notNull(),
+  partyId: uuid("party_id").references(() => entities.id, { onDelete: "cascade" }).notNull(),
   role: text("role").notNull(),
   formatText: text("format_text").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -14,7 +14,7 @@ export const invoices = pgTable("invoices", {
   id: uuid("id").primaryKey().defaultRandom(),
   invoiceNumber: text("invoice_number").notNull().unique(),
   shipmentId: uuid("shipment_id").references(() => shipments.id),
-  partyId: uuid("party_id").references(() => parties.id).notNull(), // Client (Shipper or Consignee)
+  partyId: uuid("party_id").references(() => entities.id).notNull(), // Client (Shipper or Consignee)
   amount: decimal("amount").notNull(),
   currency: text("currency").notNull().default('USD'),
   status: text("status").notNull().default('Pending'), // 'Pending', 'Paid', 'Overdue', 'Cancelled'

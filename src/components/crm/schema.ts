@@ -1,31 +1,38 @@
 import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
-export const parties = pgTable("parties", {
+export const entities = pgTable("entities", {
   id: uuid("id").primaryKey().defaultRandom(),
-  type: text("type"), // Legacy
-  name: text("name"), // Legacy
-  contactEmail: text("contact_email"), // Legacy
-  contactPhone: text("contact_phone"), // Legacy
-  address: text("address"), // Legacy
-  category: text("category").notNull().default("Client"),
-  companyName: text("company_name").notNull().default("Unknown"),
-  addressLine1: text("address_line1"),
-  addressLine2: text("address_line2"),
+  companyName: text("company_name").notNull(),
+  street: text("street"),
+  zipCode: text("zip_code"),
   city: text("city"),
-  state: text("state"),
-  postalCode: text("postal_code"),
-  country: text("country"),
+  federalState: text("federal_state"),
+  countryIsoCode: text("country_iso_code"),
+  countryName: text("country_name"),
+  unlocode: text("unlocode"),
+  taxId: text("tax_id"),
+  phone: text("phone"),
+  email: text("email"),
+  companyType: text("company_type"), // Carrier, Terminal, Agent, Broker, Supplier, Customer, Haulier, Forwarder, Depot, Authority, Inland Container Depot, Warehouse
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const partyContacts = pgTable("party_contacts", {
+export const entityContacts = pgTable("entity_contacts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  partyId: uuid("party_id").references(() => parties.id, { onDelete: "cascade" }).notNull(),
+  entityId: uuid("entity_id").references(() => entities.id, { onDelete: "cascade" }).notNull(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   jobTitle: text("job_title"),
   email: text("email"),
   phone: text("phone"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const entityBlFormats = pgTable("entity_bl_formats", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  entityId: uuid("entity_id").references(() => entities.id, { onDelete: "cascade" }).notNull(),
+  role: text("role").notNull(),
+  formatText: text("format_text").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

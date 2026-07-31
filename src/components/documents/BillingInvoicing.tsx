@@ -58,7 +58,7 @@ export function BillingInvoicing() {
       const [invData, shipData, partyData, docData] = await Promise.all([
         fetchApi('/invoices', token),
         fetchApi('/shipments', token),
-        fetchApi('/parties', token),
+        fetchApi('/entities', token),
         fetchApi('/documents', token)
       ]);
       setInvoices(invData || []);
@@ -230,7 +230,7 @@ export function BillingInvoicing() {
                     <SelectTrigger><SelectValue placeholder="Select Client" /></SelectTrigger>
                     <SelectContent>
                       {parties.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.companyName} ({p.category})</SelectItem>
+                        <SelectItem key={p.id} value={p.id}>{p.companyName} ({p.companyType})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>

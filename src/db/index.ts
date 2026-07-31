@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
 import { PGlite } from '@electric-sql/pglite';
 import * as schema from './schema.ts';
 import fs from 'fs';
@@ -7,7 +8,19 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 // Use an in-memory database or local file
-const client = new PGlite('./local_pg_data');
+const dbPath = process.env.NODE_ENV === 'production' ? '/tmp/local_pg_data' : './local_pg_data';
+function createDbClient() {
+  try {
+    return new PGlite(dbPath);
+  } catch (err) {
+    console.error(`[DB] Error initializing PGlite at ${dbPath}, resetting directory:`, err);
+    if (fs.existsSync(dbPath)) {
+      try { fs.rmSync(dbPath, { recursive: true, force: true }); } catch (e) {}
+    }
+    return new PGlite(dbPath);
+  }
+}
+let client = createDbClient();
 
 export const db = drizzle(client, { schema });
 
@@ -34,54 +47,47 @@ async function addColumnIfNotExist(tableName: string, columnName: string, column
 }
 
 // Initialize schema on startup
-export const dbInitPromise = client.waitReady.then(async () => {
+export const dbInitPromise = (async () => {
   try {
-    const res = await client.query("SELECT to_regclass('users')");
-    if (!(res.rows[0] as any).to_regclass) {
-      console.log("Initializing database schema from drizzle/0000_gorgeous_orphan.sql...");
-      const sql = fs.readFileSync(path.resolve('./drizzle/0000_gorgeous_orphan.sql'), 'utf-8');
-      await client.exec(sql);
-      console.log("Database schema initialized.");
-    } else {
-      // Ensure 'weight' column exists on shipments
-      await addColumnIfNotExist('shipments', 'weight', 'text');
-      
-      // Seed some random weights for existing shipments if needed
-      try {
-        await client.query("UPDATE shipments SET weight = floor(random() * 5000 + 1000)::text WHERE weight IS NULL");
-      } catch (e) {
-        // Ignored
+    await client.waitReady;
+  } catch (err) {
+    console.error(`[DB] PGlite waitReady failed at ${dbPath}, purging and recreating:`, err);
+    if (fs.existsSync(dbPath)) {
+      try { fs.rmSync(dbPath, { recursive: true, force: true }); } catch (e) {}
+    }
+    client = createDbClient();
+    await client.waitReady;
+  }
+  try {
+    try {
+      console.log("[DB Migration Runner] Running automated drizzle-kit schema migrations...");
+      await migrate(db, { migrationsFolder: path.resolve('./drizzle') });
+      console.log("[DB Migration Runner] Drizzle schema migrations applied successfully.");
+    } catch (migErr) {
+      console.error("[DB Migration Runner] Error running drizzle migrations, applying fallback execution:", migErr);
+      const res = await client.query("SELECT to_regclass('users')");
+      if (!(res.rows[0] as any).to_regclass) {
+        const sql = fs.readFileSync(path.resolve('./drizzle/0000_clean_mockingbird.sql'), 'utf-8');
+        await client.exec(sql);
       }
     }
 
-    // Ensure shipment_documents version control columns exist dynamically and safely
-    await addColumnIfNotExist('shipment_documents', 'version', 'integer DEFAULT 1 NOT NULL');
-    await addColumnIfNotExist('shipment_documents', 'parent_document_id', 'uuid');
-    await addColumnIfNotExist('shipment_documents', 'comments', 'text');
-    await addColumnIfNotExist('shipment_documents', 'file_size', 'text');
-    await addColumnIfNotExist('shipment_documents', 'extracted_metadata', 'jsonb');
-    await addColumnIfNotExist('shipment_documents', 'tags', 'text[]');
-    await addColumnIfNotExist('shipment_documents', 'folder_id', 'uuid');
-    await addColumnIfNotExist('shipment_documents', 'expiry_date', 'timestamp');
-    await addColumnIfNotExist('compliance_documents', 'expiry_date', 'timestamp');
-      try {
-        await client.query("CREATE TABLE IF NOT EXISTS document_folders (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, parent_id uuid, created_at timestamp NOT NULL DEFAULT now())");
-        console.log("Created document_folders table");
-      } catch (e) {
-        console.error("Error creating document_folders:", e);
-      }
-      try {
-        await client.query("CREATE TABLE IF NOT EXISTS notifications (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id text, target_role text, type text NOT NULL, message text NOT NULL, is_read integer NOT NULL DEFAULT 0, reference_id text, created_at timestamp NOT NULL DEFAULT now())");
-        console.log("Created notifications table");
-      } catch (e) {
-        console.error("Error creating notifications:", e);
-      }
-      try {
-        await client.query("CREATE TABLE IF NOT EXISTS audit_logs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), entity_type text NOT NULL, entity_id text NOT NULL, operation text NOT NULL, changed_by text NOT NULL DEFAULT 'System', previous_state text, new_state text, timestamp timestamp NOT NULL DEFAULT now())");
-        console.log("Created audit_logs table");
-      } catch (e) {
-        console.error("Error creating audit_logs:", e);
-      }
+  // Ensure 'weight' column exists on shipments
+  await addColumnIfNotExist('shipments', 'weight', 'text');
+  try {
+    await client.query("UPDATE shipments SET weight = floor(random() * 5000 + 1000)::text WHERE weight IS NULL");
+  } catch (e) {}
+
+  // Ensure shipment_documents and auxiliary tables exist dynamically and safely
+  await addColumnIfNotExist('shipment_documents', 'version', 'integer DEFAULT 1 NOT NULL');
+  await addColumnIfNotExist('shipment_documents', 'parent_document_id', 'uuid');
+  await addColumnIfNotExist('shipment_documents', 'comments', 'text');
+  await addColumnIfNotExist('shipment_documents', 'file_size', 'text');
+  await addColumnIfNotExist('shipment_documents', 'extracted_metadata', 'jsonb');
+  await addColumnIfNotExist('shipment_documents', 'tags', 'text[]');
+  await addColumnIfNotExist('shipment_documents', 'folder_id', 'uuid');
+  await addColumnIfNotExist('shipment_documents', 'expiry_date', 'timestamp');
+  await addColumnIfNotExist('compliance_documents', 'expiry_date', 'timestamp');
 
 
     // Now check if database is empty and requires seeding
@@ -182,15 +188,15 @@ export const dbInitPromise = client.waitReady.then(async () => {
       ];
 
       for (const p of partiesToInsert) {
-        await db.insert(schema.parties).values({
+        await db.insert(schema.entities).values({
           id: p.id,
-          category: p.category,
+          companyType: p.category,
           companyName: p.companyName,
-          addressLine1: p.addressLine1,
+          street: p.addressLine1,
           city: p.city,
-          country: p.country,
-          name: p.companyName,
-          type: p.category
+          countryName: p.country,
+          
+          
         });
       }
 
@@ -564,4 +570,4 @@ export const dbInitPromise = client.waitReady.then(async () => {
   } catch (err) {
     console.error("Error initializing database schema or seeding:", err);
   }
-});
+})();

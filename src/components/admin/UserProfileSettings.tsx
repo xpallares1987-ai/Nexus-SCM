@@ -57,7 +57,7 @@ export function UserProfileSettings() {
       await new Promise((resolve) => setTimeout(resolve, 1800));
       
       const newKey = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: window.crypto.getRandomValues(new Uint32Array(1))[0].toString(36),
         name: newKeyName.trim(),
         type: newKeyType,
         registeredAt: new Date().toISOString().split('T')[0],

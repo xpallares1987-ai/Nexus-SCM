@@ -1,33 +1,30 @@
-const STATIC_CACHE_NAME = 'scm-static-v1';
-const API_CACHE_NAME = 'scm-api-v1';
-
-// Static resources to cache on install
-const PRE_CACHE_RESOURCES = [
+const CACHE_NAME = 'scm-warehouse-cache-v1';
+const PRECACHE_ASSETS = [
   '/',
   '/index.html',
+  '/manifest.json',
+  '/favicon.ico'
 ];
 
-// Install event: Pre-cache core shell resources
+// Install Event: Pre-cache critical application shell assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME)
-      .then((cache) => {
-        console.log('[Service Worker] Pre-caching offline shell');
-        return cache.addAll(PRE_CACHE_RESOURCES);
-      })
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[SW] Pre-caching critical UI shell assets');
+      return cache.addAll(PRECACHE_ASSETS);
+    }).then(() => self.skipWaiting())
   );
 });
 
-// Activate event: Clean up old caches and claim clients
+// Activate Event: Clean up old caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== STATIC_CACHE_NAME && cacheName !== API_CACHE_NAME) {
-            console.log('[Service Worker] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            console.log('[SW] Clearing old cache:', cache);
+            return caches.delete(cache);
           }
         })
       );
@@ -35,219 +32,157 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Helper to check if request is an API request
-const isApiRequest = (url) => {
-  return url.pathname.startsWith('/api/');
-};
-
-// Fetch event: Apply strategies based on request type
+// Fetch Event: Network-First caching strategy for critical UI assets & offline responsiveness
 self.addEventListener('fetch', (event) => {
-  const requestUrl = new URL(event.request.url);
+  const request = event.request;
 
-  // Skip non-GET requests for standard caching
-  if (event.request.method !== 'GET') {
-    // We could queue offline operations or simply bypass caching
+  // Skip non-GET requests or non-http(s) schemas (e.g., chrome-extension)
+  if (request.method !== 'GET' || !request.url.startsWith('http')) {
     return;
   }
 
-  // Skip WebSocket, hot reload, chrome-extension, and other protocols
-  if (!event.request.url.startsWith('http') && !event.request.url.startsWith('https')) {
-    return;
-  }
-
-  // Bypass caching entirely in development to prevent stale assets/React hooks conflicts
-  if (
-    self.location.hostname === 'localhost' || 
-    self.location.hostname === '127.0.0.1' || 
-    self.location.hostname.includes('run.app') ||
-    requestUrl.pathname.includes('@vite') ||
-    requestUrl.pathname.includes('@fs') ||
-    requestUrl.pathname.includes('node_modules') ||
-    requestUrl.pathname.endsWith('.tsx') ||
-    requestUrl.pathname.endsWith('.ts')
-  ) {
-    return;
-  }
-
-  // Handle API Requests: Network-First Strategy
-  if (isApiRequest(requestUrl)) {
-    // Avoid caching certain stream or real-time endpoints if any
-    if (requestUrl.pathname.includes('/events') || requestUrl.pathname.includes('/stream')) {
-      return;
-    }
-
-    event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          // If response is valid, clone and save to API cache
-          if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(API_CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          console.log('[Service Worker] Network failed, searching cache for:', event.request.url);
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // If neither network nor cache matches, return a friendly offline JSON response
-            return new Response(
-              JSON.stringify({
-                error: 'You are currently offline. This request could not be completed and no cached data is available.',
-                offline: true,
-              }),
-              {
-                status: 503,
-                headers: { 'Content-Type': 'application/json' },
-              }
-            );
-          });
-        })
-    );
-    return;
-  }
-
-  // Handle Static Assets & UI Files: Stale-While-Revalidate Strategy
+  // Network-First Strategy
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(STATIC_CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return networkResponse;
-        })
-        .catch((err) => {
-          console.warn('[Service Worker] Failed to fetch asset from network:', event.request.url, err);
-          // Return cachedResponse or let it fail
+    fetch(request)
+      .then((networkResponse) => {
+        // Cache successful HTTP 200 responses
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(async () => {
+        console.log('[SW] Network request failed, attempting offline cache match for:', request.url);
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
           return cachedResponse;
-        });
+        }
 
-      // Return cached response immediately if found, else wait for network
-      return cachedResponse || fetchPromise;
-    })
+        // For navigation HTML requests when offline, serve the cached SPA index.html
+        if (request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'))) {
+          const fallbackHtml = await caches.match('/index.html');
+          if (fallbackHtml) {
+            return fallbackHtml;
+          }
+        }
+
+        // Return standard offline fallback JSON for API calls if unhandled
+        if (request.url.includes('/api/')) {
+          // If it's a POST/PUT request and offline, we could queue it via IndexedDB
+          // but usually this is handled by the frontend before calling fetch.
+          // The background sync event will process queued items.
+          return new Response(
+            JSON.stringify({ offline: true, message: 'Operando en modo offline. Los cambios se sincronizarán al reconectar.' }),
+            { headers: { 'Content-Type': 'application/json' }, status: 503 }
+          );
+        }
+      })
   );
 });
 
-// Push Event: Handle incoming push notifications from a server
-self.addEventListener('push', (event) => {
-  let data = { title: 'New Alert', body: 'You have a new notification.' };
-  
+// Background Sync Event Listener
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-warehouse-scans') {
+    event.waitUntil(
+      (async () => {
+        try {
+          const request = indexedDB.open('scm-offline-sync', 1);
+          const db = await new Promise((resolve, reject) => {
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result);
+            request.onupgradeneeded = (e) => {
+              e.target.result.createObjectStore('sync-queue', { keyPath: 'id', autoIncrement: true });
+            };
+          });
+
+          const tx = db.transaction('sync-queue', 'readonly');
+          const store = tx.objectStore('sync-queue');
+          const allRecords = await new Promise((resolve, reject) => {
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+          });
+
+          for (const record of allRecords) {
+            try {
+              await fetch(record.url, {
+                method: record.method,
+                headers: record.headers,
+                body: record.body
+              });
+              // Remove successfully sent record
+              const delTx = db.transaction('sync-queue', 'readwrite');
+              delTx.objectStore('sync-queue').delete(record.id);
+            } catch (err) {
+              console.error('[SW] Sync failed for record:', record.id, err);
+            }
+          }
+        } catch (err) {
+          console.error('[SW] Sync process error:', err);
+        }
+      })()
+    );
+  }
+});
+
+// Push Notifications Listener
+self.addEventListener('push', function(event) {
   if (event.data) {
+    let data = {};
     try {
       data = event.data.json();
     } catch (e) {
-      data.body = event.data.text();
+      data = { title: 'Notificación de SCM', body: event.data.text() };
     }
+    const options = {
+      body: data.body,
+      icon: data.icon || '/icon-192.png',
+      vibrate: [100, 50, 100],
+      data: data.data || {},
+      actions: [
+        { action: 'mark_action_taken', title: '✓ Marcar como Tomada Acción' }
+      ]
+    };
+    event.waitUntil(
+      self.registration.showNotification(data.title || 'Alerta SCM', options)
+    );
   }
-
-  const options = {
-    body: data.body,
-    icon: '/vite.svg',
-    badge: '/vite.svg',
-    data: data.url || '/',
-    vibrate: [100, 50, 100],
-    requireInteraction: data.requireInteraction || false
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Notification', options)
-  );
 });
 
-// Notification Click Event: Handle when a user clicks a notification
-self.addEventListener('notificationclick', (event) => {
+// Notification Click Listener
+self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-
-  const urlToOpen = new URL(event.notification.data || '/', self.location.origin).href;
-
+  
+  if (event.action === 'mark_action_taken') {
+    event.waitUntil(
+      fetch('/api/notifications/ack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: event.notification.data?.id || 'unknown', status: 'Acción Tomada' })
+      })
+    );
+    return;
+  }
+  
+  const urlToOpen = (event.notification.data && event.notification.data.url) || '/';
+  
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Check if there is already a window/tab open with the target URL
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then(function(windowClients) {
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        // If so, just focus it
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // If not, open a new window
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
     })
   );
 });
-
-// --- Background Sync API Setup ---
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-shipments') {
-    event.waitUntil(syncShipments());
-  }
-});
-
-async function syncShipments() {
-  const db = await openSyncDB();
-  const tx = db.transaction('sync-queue', 'readwrite');
-  const store = tx.objectStore('sync-queue');
-  const requests = await new Promise((resolve, reject) => {
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-
-  if (requests.length === 0) return;
-
-  console.log(`[Service Worker] Syncing ${requests.length} offline shipment updates...`);
-
-  for (const item of requests) {
-    try {
-      const response = await fetch(item.url, {
-        method: item.method,
-        headers: item.headers,
-        body: item.body ? JSON.stringify(item.body) : undefined,
-      });
-
-      if (response.status === 409) {
-        const errorData = await response.json();
-        const clientsList = await self.clients.matchAll({ type: 'window' });
-        for (const client of clientsList) {
-          client.postMessage({ type: 'SYNC_CONFLICT', item, serverVersion: errorData.serverVersion });
-        }
-        const delTx = db.transaction('sync-queue', 'readwrite');
-        delTx.objectStore('sync-queue').delete(item.id);
-        await new Promise(r => delTx.oncomplete = r);
-      } else if (response.ok || response.status >= 400) {
-        // Successfully synced or permanent error (4xx) - remove from queue
-        const delTx = db.transaction('sync-queue', 'readwrite');
-        delTx.objectStore('sync-queue').delete(item.id);
-        await new Promise(r => delTx.oncomplete = r);
-      }
-    } catch (err) {
-      console.warn('[Service Worker] Sync failed for item, will retry later', item.id, err);
-      // Throwing here will tell the browser the sync failed and to retry it later
-      throw err;
-    }
-  }
-}
-
-function openSyncDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('scm-sync-db', 1);
-    request.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('sync-queue')) {
-        db.createObjectStore('sync-queue', { keyPath: 'id', autoIncrement: true });
-      }
-    };
-    request.onsuccess = (e) => resolve(e.target.result);
-    request.onerror = (e) => reject(e.target.error);
-  });
-}

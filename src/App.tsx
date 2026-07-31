@@ -1,6 +1,8 @@
 import PublicDocumentViewer from './components/documents/PublicDocumentViewer';
 import { NotificationProvider } from './contexts/NotificationContext';
 import React, { lazy, Suspense } from 'react';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from '@/components/ui/feedback/sonner';
@@ -46,6 +48,7 @@ export default function App() {
     <AuthProvider>
       <NotificationProvider>
       <BrowserRouter>
+        <ErrorBoundary>
         <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
           <Routes>
             <Route path="/public/documents/:token" element={<PublicDocumentViewer />} />
@@ -74,6 +77,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
       <Toaster />
       </NotificationProvider>

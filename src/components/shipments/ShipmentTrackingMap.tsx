@@ -205,7 +205,7 @@ export function ShipmentTrackingMap({ globalModeFilter }: { globalModeFilter?: s
       try {
         const [shipmentData, partiesData] = await Promise.all([
           fetchApi('/shipments', token),
-          fetchApi('/parties', token)
+          fetchApi('/entities', token)
         ]);
         const active = shipmentData.filter((s: any) => {
           const st = (s.status || '').toLowerCase().replace(/[\s-_]/g, '');

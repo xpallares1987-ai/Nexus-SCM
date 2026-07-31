@@ -1,7 +1,10 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/data-display/card';
-import { CheckCircle2, Clock, MapPin, Navigation, PackageCheck, Ship } from 'lucide-react';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/data-display/card';
+import { CheckCircle2, Clock, MapPin, Navigation, PackageCheck, Ship, RefreshCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/data-display/badge';
+import { Button } from '@/components/ui/forms/button';
+import { fetchApi } from '../../lib/api';
+import { toast } from 'sonner';
 
 interface TrackingEvent {
   id: string;
@@ -29,6 +32,7 @@ const MILESTONES = ['Draft', 'Booked', 'InTransit', 'Arrived', 'CustomsCleared',
 
 export function ShipmentTracking({ shipment, events }: ShipmentTrackingProps) {
   const currentStatusIndex = MILESTONES.indexOf(shipment.status);
+  const [isSimulating, setIsSimulating] = useState(false);
   
   const getMilestoneIcon = (status: string, index: number) => {
     if (index < currentStatusIndex || shipment.status === 'Delivered') {
@@ -44,6 +48,25 @@ export function ShipmentTracking({ shipment, events }: ShipmentTrackingProps) {
     return <div className="w-3 h-3 rounded-full bg-zinc-200 border-2 border-border" />;
   };
 
+  const handleSimulateUpdate = async () => {
+    try {
+      setIsSimulating(true);
+      const token = localStorage.getItem('scm_token');
+      await fetchApi(`/shipments/${shipment.id}/tracking/simulate`, token, {
+        method: 'POST',
+        body: JSON.stringify({
+          location: 'Lat: ' + (Math.random() * 90).toFixed(4) + ', Lng: ' + (Math.random() * 180).toFixed(4),
+          description: 'Automated GPS Ping received from vessel.'
+        })
+      });
+      // Event will come through websocket
+    } catch (e: any) {
+      toast.error('Failed to simulate update');
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -52,11 +75,17 @@ export function ShipmentTracking({ shipment, events }: ShipmentTrackingProps) {
             <span className="flex items-center gap-2">
               <Navigation className="w-4 h-4 text-muted-foreground" /> Live Tracking Progress
             </span>
-            {shipment.status === 'InTransit' && (
-              <Badge variant="secondary" className="animate-pulse bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50">
-                Live Updates Active
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={handleSimulateUpdate} disabled={isSimulating}>
+                <RefreshCcw className={`w-3 h-3 mr-2 ${isSimulating ? 'animate-spin' : ''}`} />
+                Simulate Location Ping
+              </Button>
+              {shipment.status === 'InTransit' && (
+                <Badge variant="secondary" className="animate-pulse bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50">
+                  Live Updates Active
+                </Badge>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -101,6 +130,46 @@ export function ShipmentTracking({ shipment, events }: ShipmentTrackingProps) {
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Tracking Events History</CardTitle>
+          <CardDescription>Recent updates for {shipment.referenceNumber}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <div className="text-sm text-muted-foreground italic py-4 text-center">No tracking events recorded yet.</div>
+          ) : (
+            <div className="space-y-4">
+              {[...events].reverse().map((evt) => (
+                <div key={evt.id} className="flex gap-4 items-start pb-4 border-b border-border last:border-0 last:pb-0">
+                  <div className="mt-1">
+                    {evt.eventType === 'Location Update' ? (
+                      <MapPin className="w-4 h-4 text-blue-500" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-slate-400" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{evt.eventType}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(evt.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{evt.description}</p>
+                    {evt.oldStatus && evt.newStatus && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Status changed: {evt.oldStatus} &rarr; {evt.newStatus}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Live Map Placeholder / External API Simulation */}
       {shipment.status === 'InTransit' && (
         <div className="relative h-48 rounded-lg overflow-hidden border border-border bg-background flex items-center justify-center">
@@ -109,7 +178,6 @@ export function ShipmentTracking({ shipment, events }: ShipmentTrackingProps) {
              <Ship className="w-8 h-8 text-blue-500 mx-auto animate-bounce" />
              <p className="text-sm font-medium text-foreground">Vessel in Transit</p>
              <p className="text-xs text-muted-foreground">Live location tracking via external API integration enabled.</p>
-             <p className="text-xs text-muted-foreground font-mono mt-2">Lat: 34.0522, Lng: -118.2437</p>
            </div>
         </div>
       )}

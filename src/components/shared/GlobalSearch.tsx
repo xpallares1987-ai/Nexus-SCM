@@ -365,7 +365,7 @@ export function GlobalSearch() {
           const [shipmentsData, warehousesData, partiesData] = await Promise.all([
             fetchApi('/shipments', token).catch(() => []),
             fetchApi('/warehouses', token).catch(() => []),
-            fetchApi('/parties', token).catch(() => [])
+            fetchApi('/entities', token).catch(() => [])
           ]);
 
           shipmentsList = Array.isArray(shipmentsData) ? shipmentsData : [];
@@ -373,7 +373,7 @@ export function GlobalSearch() {
           partiesList = Array.isArray(partiesData) ? partiesData : [];
 
           // Save carriers state
-          const dirCarriers = partiesList.filter((p: any) => p.category === 'Carrier' || p.type === 'Carrier');
+          const dirCarriers = partiesList.filter((p: any) => p.companyType === 'Carrier' || p.companyType === 'Carrier');
           setAllCarriers(dirCarriers);
 
           // Build a robust flat pool
@@ -399,7 +399,7 @@ export function GlobalSearch() {
               type: 'party',
               id: p.id,
               title: p.name || p.companyName || '',
-              subtitle: p.type || p.category || 'Carrier',
+              subtitle: p.companyType || p.companyType || 'Carrier',
               url: '/directory'
             }))
           ];
@@ -590,7 +590,7 @@ export function GlobalSearch() {
     };
 
     setRecentSearches(prev => {
-      const filtered = prev.filter(p => p.title !== result.title || p.type !== result.type);
+      const filtered = prev.filter(p => p.title !== result.title || p.companyType !== result.type);
       const updated = [searchItem, ...filtered].slice(0, 5);
       localStorage.setItem('scm_recent_searches', JSON.stringify(updated));
       return updated;
