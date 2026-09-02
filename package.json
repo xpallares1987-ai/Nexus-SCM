@@ -40,7 +40,7 @@
     "drizzle-orm": "^0.45.2",
     "esbuild": "^0.28.2",
     "eventemitter3": "^5.0.4",
-    "fastify": "^5.9.0",
+    "fastify": "^5.12.1",
     "fuse.js": "^7.4.2",
     "i18next": "^26.3.4",
     "i18next-browser-languagedetector": "^8.2.1",
