@@ -46,7 +46,7 @@ export function FileDropzone({
         const acceptList = accept.split(',').map(ext => ext.trim().toLowerCase());
         
         // Very basic validation - in production a more robust MIME/extension check might be needed
-        if (acceptList.includes(fileExt) || acceptList.some(a => droppedFile.type.match(new RegExp(a.replace('*', '.*'))))) {
+        if (acceptList.includes(fileExt) || acceptList.some(a => droppedFile.type.match(new RegExp(a.replace(/\*/g, '.*'))))) {
            onFileSelect(droppedFile);
         } else {
            // Optionally show a toast here for invalid file type
